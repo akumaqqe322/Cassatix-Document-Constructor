@@ -1,0 +1,5 @@
+{
+  "name": "Legal Document Constructor",
+  "description": "A modular monolith system for constructing legal documents with a background worker for generation.",
+  "requestFramePermissions": []
+}

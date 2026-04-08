@@ -1,0 +1,85 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String            @id @default(uuid())
+  email            String            @unique
+  name             String?
+  roleId           String
+  role             Role              @relation(fields: [roleId], references: [id])
+  templates        Template[]        @relation("TemplateCreatedBy")
+  templateVersions TemplateVersion[] @relation("TemplateVersionCreatedBy")
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+}
+
+model Role {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  users     User[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum TemplateStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum TemplateVersionStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model Template {
+  id                 String            @id @default(uuid())
+  name               String
+  code               String            @unique
+  category           String // Business document category (e.g., CONTRACT, NDA)
+  caseType           String // Business case type (e.g., LITIGATION, CORPORATE)
+  status             TemplateStatus    @default(DRAFT)
+  publishedVersionId String?           @unique
+  publishedVersion   TemplateVersion?  @relation("PublishedVersion", fields: [publishedVersionId], references: [id])
+  versions           TemplateVersion[] @relation("TemplateVersions")
+  createdById        String
+  createdBy          User              @relation("TemplateCreatedBy", fields: [createdById], references: [id])
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([code])
+  @@index([status])
+}
+
+model TemplateVersion {
+  id                   String                @id @default(uuid())
+  templateId           String
+  template             Template              @relation("TemplateVersions", fields: [templateId], references: [id])
+  versionNumber        Int
+  status               TemplateVersionStatus @default(DRAFT)
+  storagePath          String? // Path to the physical file in storage
+  fileName             String? // Original file name
+  variablesSchemaJson  Json? // JSON Schema for template variables
+  conditionsSchemaJson Json? // JSON Schema for conditional logic
+  changelog            String?
+  createdById          String
+  createdBy            User                  @relation("TemplateVersionCreatedBy", fields: [createdById], references: [id])
+  createdAt            DateTime              @default(now())
+  publishedAt          DateTime?
+  publishedInTemplate  Template?             @relation("PublishedVersion")
+
+  @@unique([templateId, versionNumber])
+  @@index([templateId])
+  @@index([status])
+}
