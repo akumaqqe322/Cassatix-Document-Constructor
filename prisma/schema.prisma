@@ -32,7 +32,6 @@ model Role {
 }
 
 enum TemplateStatus {
-  DRAFT
   ACTIVE
   ARCHIVED
 }
@@ -49,8 +48,8 @@ model Template {
   code               String            @unique
   category           String // Business document category (e.g., CONTRACT, NDA)
   caseType           String // Business case type (e.g., LITIGATION, CORPORATE)
-  status             TemplateStatus    @default(DRAFT)
-  publishedVersionId String?           @unique
+  status             TemplateStatus    @default(ACTIVE)
+  publishedVersionId String?
   publishedVersion   TemplateVersion?  @relation("PublishedVersion", fields: [publishedVersionId], references: [id])
   versions           TemplateVersion[] @relation("TemplateVersions")
   createdById        String
@@ -77,7 +76,7 @@ model TemplateVersion {
   createdBy            User                  @relation("TemplateVersionCreatedBy", fields: [createdById], references: [id])
   createdAt            DateTime              @default(now())
   publishedAt          DateTime?
-  publishedInTemplate  Template?             @relation("PublishedVersion")
+  publishedInTemplates Template[]            @relation("PublishedVersion")
 
   @@unique([templateId, versionNumber])
   @@index([templateId])
