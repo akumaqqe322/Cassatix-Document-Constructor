@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Param, UsePipes, ValidationPipe, UseInterc
 import { FileInterceptor } from '@nestjs/platform-express';
 import { TemplateVersionsService } from './template-versions.service';
 import { CreateTemplateVersionDto } from './dto/create-template-version.dto';
+import { GeneratePreviewDto } from './dto/generate-preview.dto';
 
 const SYSTEM_ACTOR_ID = '00000000-0000-0000-0000-000000000000';
 
@@ -46,6 +47,15 @@ export class TemplateVersionsController {
     file: Express.Multer.File,
   ) {
     return this.versionsService.uploadFile(templateId, versionId, file);
+  }
+
+  @Post(':versionId/preview')
+  generatePreview(
+    @Param('templateId') templateId: string,
+    @Param('versionId') versionId: string,
+    @Body() dto: GeneratePreviewDto,
+  ) {
+    return this.versionsService.generatePreview(templateId, versionId, dto.caseId, SYSTEM_ACTOR_ID);
   }
 
   @Post(':versionId/publish')

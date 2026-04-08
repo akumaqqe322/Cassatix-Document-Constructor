@@ -1,9 +1,11 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTemplateVersionDto } from './dto/create-template-version.dto';
-import { TemplateVersionStatus, Prisma, ValidationStatus } from '@prisma/client';
+import { TemplateVersionStatus, Prisma, ValidationStatus, GenerationType, DocumentStatus, OutputFormat } from '@prisma/client';
 import { StorageService } from '../storage/storage.service';
 import { TemplateValidationQueueService } from './template-validation-queue.service';
+import { DocumentGenerationQueueService } from './document-generation-queue.service';
+import { CasesService } from '../cases/cases.service';
 
 @Injectable()
 export class TemplateVersionsService {
@@ -23,6 +25,8 @@ export class TemplateVersionsService {
     private prisma: PrismaService,
     private storageService: StorageService,
     private validationQueue: TemplateValidationQueueService,
+    private generationQueue: DocumentGenerationQueueService,
+    private casesService: CasesService,
   ) {}
 
   async create(templateId: string, dto: CreateTemplateVersionDto, actorId: string) {
@@ -109,6 +113,41 @@ export class TemplateVersionsService {
     await this.validationQueue.enqueueValidation(templateId, versionId);
 
     return updatedVersion;
+  }
+
+  async generatePreview(templateId: string, versionId: string, caseId: string, actorId: string) {
+    const version = await this.findById(templateId, versionId);
+
+    // 1. Verify version is ready for generation
+    if (!version.storagePath) {
+      throw new BadRequestException('Template version has no file uploaded');
+    }
+
+    if (version.validationStatus !== ValidationStatus.VALID) {
+      throw new BadRequestException(`Template version is not in a valid state (current: ${version.validationStatus})`);
+    }
+
+    // 2. Verify case exists
+    await this.casesService.getCaseData(caseId);
+
+    // 3. Create GeneratedDocument record and enqueue job
+    return this.prisma.$transaction(async (tx) => {
+      const doc = await tx.generatedDocument.create({
+        data: {
+          templateId,
+          templateVersionId: versionId,
+          caseId,
+          requestedById: actorId,
+          generationType: GenerationType.PREVIEW,
+          outputFormat: OutputFormat.DOCX,
+          status: DocumentStatus.QUEUED,
+        },
+      });
+
+      await this.generationQueue.enqueuePreview(templateId, versionId, caseId, doc.id);
+
+      return doc;
+    });
   }
 
   async publish(templateId: string, versionId: string) {
