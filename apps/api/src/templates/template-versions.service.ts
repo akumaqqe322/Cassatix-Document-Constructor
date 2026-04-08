@@ -1,8 +1,9 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTemplateVersionDto } from './dto/create-template-version.dto';
-import { TemplateVersionStatus, Prisma } from '@prisma/client';
+import { TemplateVersionStatus, Prisma, ValidationStatus } from '@prisma/client';
 import { StorageService } from '../storage/storage.service';
+import { TemplateValidationQueueService } from './template-validation-queue.service';
 
 @Injectable()
 export class TemplateVersionsService {
@@ -21,6 +22,7 @@ export class TemplateVersionsService {
   constructor(
     private prisma: PrismaService,
     private storageService: StorageService,
+    private validationQueue: TemplateValidationQueueService,
   ) {}
 
   async create(templateId: string, dto: CreateTemplateVersionDto, actorId: string) {
@@ -94,14 +96,19 @@ export class TemplateVersionsService {
       contentType: file.mimetype,
     });
 
-    return this.prisma.templateVersion.update({
+    const updatedVersion = await this.prisma.templateVersion.update({
       where: { id: versionId },
       data: {
         storagePath,
         fileName: file.originalname,
+        validationStatus: ValidationStatus.PENDING,
       },
       include: this.detailsInclude,
     });
+
+    await this.validationQueue.enqueueValidation(templateId, versionId);
+
+    return updatedVersion;
   }
 
   async publish(templateId: string, versionId: string) {

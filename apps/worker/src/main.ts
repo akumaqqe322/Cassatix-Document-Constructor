@@ -1,11 +1,12 @@
 import { Worker } from 'bullmq';
 import { QUEUE_NAME } from '@app/shared';
 import 'dotenv/config';
+import { startTemplateValidationWorker } from './template-validation.processor';
 
 async function startWorker() {
   console.log(`Starting worker for queue: ${QUEUE_NAME}`);
   
-  const worker = new Worker(QUEUE_NAME, async (job) => {
+  const docWorker = new Worker(QUEUE_NAME, async (job) => {
     console.log(`Processing job ${job.id}:`, job.data);
     
     // Simulate document generation
@@ -20,16 +21,19 @@ async function startWorker() {
     },
   });
 
-  worker.on('completed', (job) => {
+  docWorker.on('completed', (job) => {
     console.log(`${job.id} has completed!`);
   });
 
-  worker.on('failed', (job, err) => {
+  docWorker.on('failed', (job, err) => {
     console.log(`${job?.id} has failed with ${err.message}`);
   });
 
-  console.log('Worker is running...');
-  return worker;
+  // Start template validation worker
+  const validationWorker = await startTemplateValidationWorker();
+
+  console.log('Workers are running...');
+  return { docWorker, validationWorker };
 }
 
 startWorker().catch(err => {

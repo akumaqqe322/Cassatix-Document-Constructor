@@ -25,3 +25,4 @@ export interface DocumentMetadata {
 }
 
 export const QUEUE_NAME = 'document-generation';
+export const TEMPLATE_VALIDATION_QUEUE = 'template-validation';

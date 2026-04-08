@@ -44,6 +44,12 @@ enum TemplateVersionStatus {
   ARCHIVED
 }
 
+enum ValidationStatus {
+  PENDING
+  VALID
+  INVALID
+}
+
 enum GenerationType {
   PREVIEW
   FINAL
@@ -92,6 +98,9 @@ model TemplateVersion {
   variablesSchemaJson  Json? // JSON Schema for template variables
   conditionsSchemaJson Json? // JSON Schema for conditional logic
   changelog            String?
+  validationStatus     ValidationStatus?
+  validationError      String?
+  validatedAt          DateTime?
   generatedDocuments   GeneratedDocument[]
   createdById          String
   createdBy            User                  @relation("TemplateVersionCreatedBy", fields: [createdById], references: [id])
