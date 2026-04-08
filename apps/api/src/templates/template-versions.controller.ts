@@ -1,0 +1,48 @@
+import { Controller, Get, Post, Body, Param, UsePipes, ValidationPipe } from '@nestjs/common';
+import { TemplateVersionsService } from './template-versions.service';
+import { CreateTemplateVersionDto } from './dto/create-template-version.dto';
+
+@Controller('templates/:templateId/versions')
+@UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
+export class TemplateVersionsController {
+  constructor(private readonly versionsService: TemplateVersionsService) {}
+
+  @Post()
+  create(
+    @Param('templateId') templateId: string,
+    @Body() dto: CreateTemplateVersionDto,
+  ) {
+    // Simulated actorId until auth is implemented
+    const actorId = '00000000-0000-0000-0000-000000000000';
+    return this.versionsService.create(templateId, dto, actorId);
+  }
+
+  @Get()
+  findAll(@Param('templateId') templateId: string) {
+    return this.versionsService.findAll(templateId);
+  }
+
+  @Get(':versionId')
+  findOne(
+    @Param('templateId') templateId: string,
+    @Param('versionId') versionId: string,
+  ) {
+    return this.versionsService.findById(versionId);
+  }
+
+  @Post(':versionId/publish')
+  publish(
+    @Param('templateId') templateId: string,
+    @Param('versionId') versionId: string,
+  ) {
+    return this.versionsService.publish(templateId, versionId);
+  }
+
+  @Post(':versionId/archive')
+  archive(
+    @Param('templateId') templateId: string,
+    @Param('versionId') versionId: string,
+  ) {
+    return this.versionsService.archive(templateId, versionId);
+  }
+}
