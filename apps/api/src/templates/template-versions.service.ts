@@ -39,11 +39,13 @@ export class TemplateVersionsService {
 
     return this.prisma.templateVersion.create({
       data: {
-        ...dto,
-        templateId,
+        changelog: dto.changelog,
+        variablesSchemaJson: dto.variablesSchemaJson as Prisma.InputJsonValue,
+        conditionsSchemaJson: dto.conditionsSchemaJson as Prisma.InputJsonValue,
         versionNumber: nextVersionNumber,
-        createdById: actorId,
         status: TemplateVersionStatus.DRAFT,
+        template: { connect: { id: templateId } },
+        createdBy: { connect: { id: actorId } },
       },
       include: this.detailsInclude,
     });
@@ -53,34 +55,28 @@ export class TemplateVersionsService {
     return this.prisma.templateVersion.findMany({
       where: { templateId },
       orderBy: { versionNumber: 'desc' },
-      include: {
-        createdBy: this.userSelect,
-      },
+      include: this.detailsInclude,
     });
   }
 
-  async findById(id: string) {
+  async findById(templateId: string, versionId: string) {
     const version = await this.prisma.templateVersion.findUnique({
-      where: { id },
+      where: { id: versionId },
       include: {
         ...this.detailsInclude,
         template: true,
       },
     });
 
-    if (!version) {
-      throw new NotFoundException(`Template version with ID ${id} not found`);
+    if (!version || version.templateId !== templateId) {
+      throw new NotFoundException(`Template version with ID ${versionId} not found for template ${templateId}`);
     }
 
     return version;
   }
 
   async publish(templateId: string, versionId: string) {
-    const version = await this.findById(versionId);
-
-    if (version.templateId !== templateId) {
-      throw new BadRequestException('Version does not belong to the specified template');
-    }
+    const version = await this.findById(templateId, versionId);
 
     if (version.status === TemplateVersionStatus.ARCHIVED) {
       throw new BadRequestException('Cannot publish an archived version');
@@ -91,10 +87,7 @@ export class TemplateVersionsService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      // 1. Set all other PUBLISHED versions of this template to ARCHIVED (or just leave them? 
-      // The prompt says "ensure previously published versions... are no longer left in an inconsistent published state")
-      // Usually, we move them to ARCHIVED or just keep them as they are but they are no longer the "publishedVersion" on the Template.
-      // However, the prompt implies changing their status.
+      // 1. Set all other PUBLISHED versions of this template to ARCHIVED
       await tx.templateVersion.updateMany({
         where: {
           templateId,
@@ -129,11 +122,7 @@ export class TemplateVersionsService {
   }
 
   async archive(templateId: string, versionId: string) {
-    const version = await this.findById(versionId);
-
-    if (version.templateId !== templateId) {
-      throw new BadRequestException('Version does not belong to the specified template');
-    }
+    const version = await this.findById(templateId, versionId);
 
     return this.prisma.$transaction(async (tx) => {
       const updatedVersion = await tx.templateVersion.update({

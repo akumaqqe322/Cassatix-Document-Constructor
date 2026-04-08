@@ -7,17 +7,9 @@ export class CreateTemplateVersionDto {
 
   @IsObject()
   @IsOptional()
-  variablesSchemaJson?: any;
+  variablesSchemaJson?: Record<string, unknown>;
 
   @IsObject()
   @IsOptional()
-  conditionsSchemaJson?: any;
-
-  @IsString()
-  @IsOptional()
-  fileName?: string;
-
-  @IsString()
-  @IsOptional()
-  storagePath?: string;
+  conditionsSchemaJson?: Record<string, unknown>;
 }
