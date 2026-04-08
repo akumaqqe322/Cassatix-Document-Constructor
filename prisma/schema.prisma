@@ -11,15 +11,17 @@ datasource db {
 }
 
 model User {
-  id               String            @id @default(uuid())
-  email            String            @unique
-  name             String?
-  roleId           String
-  role             Role              @relation(fields: [roleId], references: [id])
-  templates        Template[]        @relation("TemplateCreatedBy")
-  templateVersions TemplateVersion[] @relation("TemplateVersionCreatedBy")
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id                 String              @id @default(uuid())
+  email              String              @unique
+  name               String?
+  roleId             String
+  role               Role                @relation(fields: [roleId], references: [id])
+  templates          Template[]          @relation("TemplateCreatedBy")
+  templateVersions   TemplateVersion[]   @relation("TemplateVersionCreatedBy")
+  generatedDocuments GeneratedDocument[]
+  auditLogs          AuditLog[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 }
 
 model Role {
@@ -42,20 +44,38 @@ enum TemplateVersionStatus {
   ARCHIVED
 }
 
+enum GenerationType {
+  PREVIEW
+  FINAL
+}
+
+enum OutputFormat {
+  DOCX
+  PDF
+}
+
+enum DocumentStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
 model Template {
-  id                 String            @id @default(uuid())
+  id                 String              @id @default(uuid())
   name               String
-  code               String            @unique
+  code               String              @unique
   category           String // Business document category (e.g., CONTRACT, NDA)
   caseType           String // Business case type (e.g., LITIGATION, CORPORATE)
-  status             TemplateStatus    @default(ACTIVE)
+  status             TemplateStatus      @default(ACTIVE)
   publishedVersionId String?
-  publishedVersion   TemplateVersion?  @relation("PublishedVersion", fields: [publishedVersionId], references: [id])
-  versions           TemplateVersion[] @relation("TemplateVersions")
+  publishedVersion   TemplateVersion?    @relation("PublishedVersion", fields: [publishedVersionId], references: [id])
+  versions           TemplateVersion[]   @relation("TemplateVersions")
+  generatedDocuments GeneratedDocument[]
   createdById        String
-  createdBy          User              @relation("TemplateCreatedBy", fields: [createdById], references: [id])
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
+  createdBy          User                @relation("TemplateCreatedBy", fields: [createdById], references: [id])
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 
   @@index([code])
   @@index([status])
@@ -72,6 +92,7 @@ model TemplateVersion {
   variablesSchemaJson  Json? // JSON Schema for template variables
   conditionsSchemaJson Json? // JSON Schema for conditional logic
   changelog            String?
+  generatedDocuments   GeneratedDocument[]
   createdById          String
   createdBy            User                  @relation("TemplateVersionCreatedBy", fields: [createdById], references: [id])
   createdAt            DateTime              @default(now())
@@ -81,4 +102,40 @@ model TemplateVersion {
   @@unique([templateId, versionNumber])
   @@index([templateId])
   @@index([status])
+}
+
+model GeneratedDocument {
+  id                String          @id @default(uuid())
+  templateId        String
+  template          Template        @relation(fields: [templateId], references: [id])
+  templateVersionId String
+  templateVersion   TemplateVersion @relation(fields: [templateVersionId], references: [id])
+  caseId            String
+  requestedById     String
+  requestedBy       User            @relation(fields: [requestedById], references: [id])
+  generationType    GenerationType
+  outputFormat      OutputFormat
+  status            DocumentStatus  @default(QUEUED)
+  storagePath       String?
+  errorMessage      String?
+  createdAt         DateTime        @default(now())
+  completedAt       DateTime?
+
+  @@index([caseId])
+  @@index([status])
+  @@index([templateId])
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  entityType   String
+  entityId     String
+  action       String
+  actorId      String
+  actor        User     @relation(fields: [actorId], references: [id])
+  metadataJson Json?
+  createdAt    DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId])
 }

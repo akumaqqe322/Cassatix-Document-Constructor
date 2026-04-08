@@ -8,6 +8,8 @@ import { HealthController } from './health/health.controller';
 import { UsersModule } from './users/users.module';
 import { RolesModule } from './roles/roles.module';
 import { TemplatesModule } from './templates/templates.module';
+import { DocumentsModule } from './documents/documents.module';
+import { AuditModule } from './audit/audit.module';
 
 @Global()
 @Module({
@@ -30,6 +32,8 @@ import { TemplatesModule } from './templates/templates.module';
     UsersModule,
     RolesModule,
     TemplatesModule,
+    DocumentsModule,
+    AuditModule,
   ],
   controllers: [HealthController],
   providers: [],
