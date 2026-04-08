@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTemplateVersionDto } from './dto/create-template-version.dto';
 import { TemplateVersionStatus, Prisma } from '@prisma/client';
+import { StorageService } from '../storage/storage.service';
 
 @Injectable()
 export class TemplateVersionsService {
@@ -17,7 +18,10 @@ export class TemplateVersionsService {
     createdBy: this.userSelect,
   } as const;
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private storageService: StorageService,
+  ) {}
 
   async create(templateId: string, dto: CreateTemplateVersionDto, actorId: string) {
     // Verify template exists
@@ -73,6 +77,31 @@ export class TemplateVersionsService {
     }
 
     return version;
+  }
+
+  async uploadFile(templateId: string, versionId: string, file: Express.Multer.File) {
+    const version = await this.findById(templateId, versionId);
+
+    if (version.status === TemplateVersionStatus.ARCHIVED) {
+      throw new BadRequestException('Cannot upload file to an archived version');
+    }
+
+    const storagePath = `templates/${templateId}/versions/${versionId}/${file.originalname}`;
+
+    await this.storageService.upload({
+      key: storagePath,
+      buffer: file.buffer,
+      contentType: file.mimetype,
+    });
+
+    return this.prisma.templateVersion.update({
+      where: { id: versionId },
+      data: {
+        storagePath,
+        fileName: file.originalname,
+      },
+      include: this.detailsInclude,
+    });
   }
 
   async publish(templateId: string, versionId: string) {

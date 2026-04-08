@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Body, Param, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UsePipes, ValidationPipe, UseInterceptors, UploadedFile, ParseFilePipe, FileTypeValidator } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { TemplateVersionsService } from './template-versions.service';
 import { CreateTemplateVersionDto } from './dto/create-template-version.dto';
 
@@ -28,6 +29,23 @@ export class TemplateVersionsController {
     @Param('versionId') versionId: string,
   ) {
     return this.versionsService.findById(templateId, versionId);
+  }
+
+  @Post(':versionId/file')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadFile(
+    @Param('templateId') templateId: string,
+    @Param('versionId') versionId: string,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new FileTypeValidator({ fileType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+  ) {
+    return this.versionsService.uploadFile(templateId, versionId, file);
   }
 
   @Post(':versionId/publish')
