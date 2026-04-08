@@ -21,8 +21,4 @@ export class CreateTemplateDto {
   @IsEnum(TemplateStatus)
   @IsOptional()
   status?: TemplateStatus;
-
-  @IsString()
-  @IsNotEmpty()
-  createdById: string; // Temporary until auth is implemented
 }

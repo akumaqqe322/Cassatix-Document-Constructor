@@ -5,17 +5,18 @@ import { UpdateTemplateDto } from './dto/update-template.dto';
 import { TemplateQueryDto } from './dto/template-query.dto';
 
 @Controller('templates')
+@UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class TemplatesController {
   constructor(private readonly templatesService: TemplatesService) {}
 
   @Post()
-  @UsePipes(new ValidationPipe({ transform: true }))
-  create(@Body() createTemplateDto: CreateTemplateDto) {
-    return this.templatesService.create(createTemplateDto);
+  create(@Body() dto: CreateTemplateDto) {
+    // Simulated actorId until auth is implemented
+    const actorId = '00000000-0000-0000-0000-000000000000'; 
+    return this.templatesService.create(dto, actorId);
   }
 
   @Get()
-  @UsePipes(new ValidationPipe({ transform: true }))
   findAll(@Query() query: TemplateQueryDto) {
     return this.templatesService.findAll(query);
   }
@@ -26,8 +27,7 @@ export class TemplatesController {
   }
 
   @Patch(':id')
-  @UsePipes(new ValidationPipe({ transform: true }))
-  update(@Param('id') id: string, @Body() updateTemplateDto: UpdateTemplateDto) {
-    return this.templatesService.update(id, updateTemplateDto);
+  update(@Param('id') id: string, @Body() dto: UpdateTemplateDto) {
+    return this.templatesService.update(id, dto);
   }
 }

@@ -3,23 +3,40 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateTemplateDto } from './dto/create-template.dto';
 import { UpdateTemplateDto } from './dto/update-template.dto';
 import { TemplateQueryDto } from './dto/template-query.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class TemplatesService {
+  private readonly userSelect = {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
+  } as const;
+
+  private readonly detailsInclude = {
+    publishedVersion: true,
+    createdBy: this.userSelect,
+  } as const;
+
   constructor(private prisma: PrismaService) {}
 
-  async create(dto: CreateTemplateDto) {
-    const existing = await this.prisma.template.findUnique({
-      where: { code: dto.code },
-    });
-
-    if (existing) {
-      throw new ConflictException(`Template with code ${dto.code} already exists`);
+  async create(dto: CreateTemplateDto, actorId: string) {
+    try {
+      return await this.prisma.template.create({
+        data: {
+          ...dto,
+          createdById: actorId,
+        },
+        include: this.detailsInclude,
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException(`Template with code ${dto.code} already exists`);
+      }
+      throw error;
     }
-
-    return this.prisma.template.create({
-      data: dto,
-    });
   }
 
   async findAll(query: TemplateQueryDto) {
@@ -30,13 +47,13 @@ export class TemplatesService {
         category,
         caseType,
       },
+      // Lighter list query: only include basic info and published version status
       include: {
-        publishedVersion: true,
-        createdBy: {
+        publishedVersion: {
           select: {
             id: true,
-            name: true,
-            email: true,
+            status: true,
+            versionNumber: true,
           },
         },
       },
@@ -46,16 +63,7 @@ export class TemplatesService {
   async findById(id: string) {
     const template = await this.prisma.template.findUnique({
       where: { id },
-      include: {
-        publishedVersion: true,
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
+      include: this.detailsInclude,
     });
 
     if (!template) {
@@ -66,11 +74,17 @@ export class TemplatesService {
   }
 
   async update(id: string, dto: UpdateTemplateDto) {
-    await this.findById(id);
-
-    return this.prisma.template.update({
-      where: { id },
-      data: dto,
-    });
+    try {
+      return await this.prisma.template.update({
+        where: { id },
+        data: dto,
+        include: this.detailsInclude,
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        throw new NotFoundException(`Template with ID ${id} not found`);
+      }
+      throw error;
+    }
   }
 }
