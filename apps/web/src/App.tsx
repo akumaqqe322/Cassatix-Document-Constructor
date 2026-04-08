@@ -1,11 +1,14 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import AppLayout from "./components/AppLayout";
+import { AuthProvider } from "./contexts/AuthContext";
+import { ProtectedRoute } from "./components/auth/ProtectedRoute";
+import { AppLayout } from "./components/layout/AppLayout";
+import { LoginPage } from "./pages/LoginPage";
 import Dashboard from "./pages/Dashboard";
 import Templates from "./pages/Templates";
 import GeneratedDocuments from "./pages/GeneratedDocuments";
 import Audit from "./pages/Audit";
-import Login from "./pages/Login";
+import { UserRole } from "./types/auth";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -19,17 +22,41 @@ const queryClient = new QueryClient({
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route element={<AppLayout />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/templates" element={<Templates />} />
-            <Route path="/documents" element={<GeneratedDocuments />} />
-            <Route path="/audit" element={<Audit />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            
+            <Route element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }>
+              <Route path="/" element={<Dashboard />} />
+              
+              <Route path="/templates" element={
+                <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.LAWYER]}>
+                  <Templates />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/documents" element={<GeneratedDocuments />} />
+              
+              <Route path="/audit" element={
+                <ProtectedRoute allowedRoles={[UserRole.ADMIN]}>
+                  <Audit />
+                </ProtectedRoute>
+              } />
+
+              <Route path="/settings" element={
+                <ProtectedRoute allowedRoles={[UserRole.ADMIN]}>
+                  <div className="p-4 bg-white rounded-lg border">Settings Page Placeholder</div>
+                </ProtectedRoute>
+              } />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
