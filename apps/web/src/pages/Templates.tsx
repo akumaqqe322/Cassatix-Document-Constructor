@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useTemplates } from "../hooks/useTemplates";
 import { TemplateStatus, TemplateFilters } from "../types/template";
 import { Button } from "../components/ui/button";
@@ -39,6 +40,7 @@ export default function Templates() {
   });
 
   const { data: templates, isLoading, isError, error, refetch } = useTemplates(filters);
+  const navigate = useNavigate();
 
   const handleFilterChange = (key: keyof TemplateFilters, value: string | undefined) => {
     setFilters((prev) => ({
@@ -182,6 +184,7 @@ export default function Templates() {
                 <TableRow 
                   key={template.id} 
                   className="group cursor-pointer hover:bg-gray-50/80 transition-colors"
+                  onClick={() => navigate(`/templates/${template.id}`)}
                 >
                   <TableCell className="py-4">
                     <div className="flex items-center gap-3">

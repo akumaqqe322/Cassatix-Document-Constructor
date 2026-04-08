@@ -6,6 +6,7 @@ import { AppLayout } from "./components/layout/AppLayout";
 import { LoginPage } from "./pages/LoginPage";
 import Dashboard from "./pages/Dashboard";
 import Templates from "./pages/Templates";
+import TemplateDetails from "./pages/TemplateDetails";
 import GeneratedDocuments from "./pages/GeneratedDocuments";
 import Audit from "./pages/Audit";
 import { UserRole } from "./types/auth";
@@ -37,6 +38,12 @@ export default function App() {
               <Route path="/templates" element={
                 <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.LAWYER]}>
                   <Templates />
+                </ProtectedRoute>
+              } />
+
+              <Route path="/templates/:templateId" element={
+                <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.LAWYER]}>
+                  <TemplateDetails />
                 </ProtectedRoute>
               } />
               
