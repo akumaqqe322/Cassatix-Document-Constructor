@@ -2,7 +2,7 @@ import { Worker, Job } from 'bullmq';
 import { PrismaClient, ValidationStatus } from '@prisma/client';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import * as JSZip from 'jszip';
-import { TEMPLATE_VALIDATION_QUEUE } from '@app/shared';
+import { TEMPLATE_VALIDATION_QUEUE, getRedisConnection } from '@app/shared';
 
 const prisma = new PrismaClient();
 const s3Client = new S3Client({
@@ -80,11 +80,7 @@ export async function startTemplateValidationWorker() {
       }
     }
   }, {
-    connection: {
-      host: process.env.REDIS_HOST || 'localhost',
-      port: parseInt(process.env.REDIS_PORT || '6379'),
-      password: process.env.REDIS_PASSWORD,
-    },
+    connection: getRedisConnection(),
   });
 
   worker.on('completed', (job) => {

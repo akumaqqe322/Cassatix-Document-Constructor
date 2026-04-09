@@ -8,13 +8,6 @@ import { startFinalGenerationWorker } from './final-generation.processor';
 async function startWorker() {
   console.log('Starting workers...');
   
-  console.log('DEBUG: Redis Config Check', {
-    REDIS_HOST: process.env.REDIS_HOST,
-    REDIS_PORT: process.env.REDIS_PORT,
-    HAS_REDIS_PASSWORD: !!process.env.REDIS_PASSWORD,
-    HAS_REDIS_URL: !!process.env.REDIS_URL,
-  });
-
   // Start template validation worker
   const validationWorker = await startTemplateValidationWorker();
 

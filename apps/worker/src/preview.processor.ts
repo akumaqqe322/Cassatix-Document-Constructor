@@ -3,7 +3,7 @@ import { PrismaClient, DocumentStatus } from '@prisma/client';
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
-import { QUEUE_NAME } from '@app/shared';
+import { QUEUE_NAME, getRedisConnection } from '@app/shared';
 import { CasesService } from './cases/cases.service';
 
 const prisma = new PrismaClient();
@@ -105,11 +105,7 @@ export async function startPreviewWorker() {
       }
     }
   }, {
-    connection: {
-      host: process.env.REDIS_HOST || 'localhost',
-      port: parseInt(process.env.REDIS_PORT || '6379'),
-      password: process.env.REDIS_PASSWORD,
-    },
+    connection: getRedisConnection(),
   });
 
   worker.on('completed', (job) => {
