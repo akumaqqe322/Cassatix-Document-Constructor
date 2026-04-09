@@ -24,11 +24,11 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { Badge } from "../components/ui/badge";
+import { StatusBadge, PageState } from "../components/shared/StatusBadge";
 import { 
   Search, 
   Filter, 
   RefreshCcw, 
-  AlertCircle,
   FileText,
   Clock,
   CheckCircle2,
@@ -63,32 +63,6 @@ export default function GeneratedDocuments() {
       generationType: undefined,
       outputFormat: undefined,
     });
-  };
-
-  const getStatusIcon = (status: DocumentStatus) => {
-    switch (status) {
-      case DocumentStatus.COMPLETED:
-        return <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />;
-      case DocumentStatus.FAILED:
-        return <XCircle className="h-3.5 w-3.5 text-red-500" />;
-      case DocumentStatus.PROCESSING:
-        return <Loader2 className="h-3.5 w-3.5 text-blue-500 animate-spin" />;
-      case DocumentStatus.QUEUED:
-        return <Clock className="h-3.5 w-3.5 text-gray-400" />;
-    }
-  };
-
-  const getStatusBadgeClass = (status: DocumentStatus) => {
-    switch (status) {
-      case DocumentStatus.COMPLETED:
-        return "bg-green-50 text-green-700 border-green-200";
-      case DocumentStatus.FAILED:
-        return "bg-red-50 text-red-700 border-red-200";
-      case DocumentStatus.PROCESSING:
-        return "bg-blue-50 text-blue-700 border-blue-200";
-      case DocumentStatus.QUEUED:
-        return "bg-gray-50 text-gray-600 border-gray-200";
-    }
   };
 
   return (
@@ -175,25 +149,21 @@ export default function GeneratedDocuments() {
       </div>
 
       {/* Content Area */}
-      <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border shadow-sm overflow-hidden min-h-[400px]">
         {isLoading ? (
-          <div className="p-24 flex flex-col items-center justify-center gap-4">
-            <Loader2 className="h-8 w-8 text-gray-900 animate-spin" />
-            <p className="text-sm text-gray-500 font-medium">Loading documents...</p>
-          </div>
+          <PageState 
+            title="Loading documents..." 
+            icon="loading" 
+            className="min-h-[400px]"
+          />
         ) : isError ? (
-          <div className="p-24 flex flex-col items-center justify-center gap-4 text-center">
-            <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center">
-              <AlertCircle className="h-6 w-6 text-red-600" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">Failed to load documents</h3>
-              <p className="text-sm text-gray-500 mt-1 max-w-xs">
-                {error instanceof Error ? error.message : "An unexpected error occurred while fetching documents."}
-              </p>
-            </div>
-            <Button variant="outline" onClick={() => refetch()}>Try Again</Button>
-          </div>
+          <PageState 
+            title="Failed to load documents" 
+            description={error instanceof Error ? error.message : "An unexpected error occurred while fetching documents."}
+            icon="error"
+            action={<Button variant="outline" onClick={() => refetch()}>Try Again</Button>}
+            className="min-h-[400px]"
+          />
         ) : documents && documents.length > 0 ? (
           <Table>
             <TableHeader className="bg-gray-50/50">
@@ -230,34 +200,13 @@ export default function GeneratedDocuments() {
                     <span className="text-sm font-medium text-gray-700">{doc.caseId}</span>
                   </TableCell>
                   <TableCell>
-                    <Badge 
-                      variant="outline" 
-                      className={cn(
-                        "text-[10px] uppercase font-bold tracking-wider px-2 py-0",
-                        doc.generationType === GenerationType.FINAL 
-                          ? "bg-purple-50 text-purple-700 border-purple-200" 
-                          : "bg-blue-50 text-blue-700 border-blue-200"
-                      )}
-                    >
-                      {doc.generationType}
-                    </Badge>
+                    <StatusBadge status={doc.generationType} type="generation" />
                   </TableCell>
                   <TableCell>
                     <span className="text-xs font-semibold text-gray-500">{doc.outputFormat}</span>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      {getStatusIcon(doc.status)}
-                      <Badge 
-                        variant="outline" 
-                        className={cn(
-                          "text-[10px] uppercase font-bold tracking-wider px-2 py-0",
-                          getStatusBadgeClass(doc.status)
-                        )}
-                      >
-                        {doc.status}
-                      </Badge>
-                    </div>
+                    <StatusBadge status={doc.status} type="document" showIcon />
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
@@ -267,12 +216,14 @@ export default function GeneratedDocuments() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {doc.status === DocumentStatus.COMPLETED && (
+                      {doc.status === DocumentStatus.COMPLETED && doc.storagePath && (
                         <>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-900">
-                            <Download className="h-4 w-4" />
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-900" asChild title="Download Document">
+                            <a href={`/api/documents/${doc.id}/download`} target="_blank" rel="noreferrer">
+                              <Download className="h-4 w-4" />
+                            </a>
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-900">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-900" title="View Details">
                             <ExternalLink className="h-4 w-4" />
                           </Button>
                         </>
@@ -284,22 +235,17 @@ export default function GeneratedDocuments() {
             </TableBody>
           </Table>
         ) : (
-          <div className="p-24 flex flex-col items-center justify-center gap-4 text-center">
-            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center">
-              <FileText className="h-8 w-8 text-gray-300" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">No documents found</h3>
-              <p className="text-sm text-gray-500 mt-1 max-w-xs">
-                {filters.search || filters.status || filters.generationType || filters.outputFormat
-                  ? "Try adjusting your filters to find what you're looking for."
-                  : "Documents generated by Cassatix will appear here."}
-              </p>
-            </div>
-            {(filters.search || filters.status || filters.generationType || filters.outputFormat) && (
+          <PageState 
+            title="No documents found"
+            description={filters.search || filters.status || filters.generationType || filters.outputFormat
+              ? "Try adjusting your filters to find what you're looking for."
+              : "Documents generated by Cassatix will appear here."}
+            icon="empty"
+            action={(filters.search || filters.status || filters.generationType || filters.outputFormat) && (
               <Button variant="outline" onClick={clearFilters}>Clear All Filters</Button>
             )}
-          </div>
+            className="min-h-[400px]"
+          />
         )}
       </div>
     </div>

@@ -46,6 +46,7 @@ import {
 } from "../components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Separator } from "../components/ui/separator";
+import { StatusBadge, PageState } from "../components/shared/StatusBadge";
 import { 
   ArrowLeft, 
   Calendar, 
@@ -78,27 +79,27 @@ export default function TemplateDetails() {
 
   if (isTemplateLoading) {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-        <p className="text-sm text-gray-500">Loading template details...</p>
-      </div>
+      <PageState 
+        title="Loading template details..." 
+        icon="loading" 
+        className="h-[60vh]"
+      />
     );
   }
 
   if (isTemplateError || !template) {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] gap-4 text-center">
-        <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center">
-          <AlertCircle className="h-6 w-6 text-red-600" />
-        </div>
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">Template not found</h3>
-          <p className="text-sm text-gray-500 mt-1">The template you are looking for does not exist or has been removed.</p>
-        </div>
-        <Button asChild variant="outline">
-          <Link to="/templates">Back to Templates</Link>
-        </Button>
-      </div>
+      <PageState 
+        title="Template not found" 
+        description="The template you are looking for does not exist or has been removed."
+        icon="error"
+        action={
+          <Button asChild variant="outline">
+            <Link to="/templates">Back to Templates</Link>
+          </Button>
+        }
+        className="h-[60vh]"
+      />
     );
   }
 
@@ -116,17 +117,7 @@ export default function TemplateDetails() {
         <div className="space-y-1">
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold tracking-tight text-gray-900">{template.name}</h1>
-            <Badge 
-              variant="outline" 
-              className={cn(
-                "text-[10px] uppercase font-bold tracking-wider px-2 py-0",
-                template.status === TemplateStatus.ACTIVE 
-                  ? "bg-green-50 text-green-700 border-green-200" 
-                  : "bg-gray-50 text-gray-600 border-gray-200"
-              )}
-            >
-              {template.status}
-            </Badge>
+            <StatusBadge status={template.status} type="template" />
           </div>
           <div className="flex items-center gap-4 text-sm text-gray-500">
             <div className="flex items-center gap-1">
@@ -268,10 +259,11 @@ export default function TemplateDetails() {
             </CardHeader>
             <CardContent className="p-0">
               {isVersionsLoading ? (
-                <div className="p-12 flex flex-col items-center justify-center gap-3">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
-                  <p className="text-xs text-gray-500">Loading versions...</p>
-                </div>
+                <PageState 
+                  title="Loading versions..." 
+                  icon="loading" 
+                  className="p-12"
+                />
               ) : versions && versions.length > 0 ? (
                 <Table>
                   <TableHeader>
@@ -292,35 +284,14 @@ export default function TemplateDetails() {
                           v{version.versionNumber}
                         </TableCell>
                         <TableCell>
-                          <Badge 
-                            variant="outline" 
-                            className={cn(
-                              "text-[10px] uppercase font-bold tracking-wider px-2 py-0",
-                              version.status === TemplateVersionStatus.PUBLISHED 
-                                ? "bg-green-50 text-green-700 border-green-200" 
-                                : version.status === TemplateVersionStatus.DRAFT
-                                ? "bg-blue-50 text-blue-700 border-blue-200"
-                                : "bg-gray-50 text-gray-600 border-gray-200"
-                            )}
-                          >
-                            {version.status}
-                          </Badge>
+                          <StatusBadge status={version.status} type="version" />
                         </TableCell>
                         <TableCell className="max-w-[200px] truncate text-sm text-gray-600">
                           {version.fileName || <span className="text-gray-400 italic">No file uploaded</span>}
                         </TableCell>
                         <TableCell>
                           {version.validationStatus ? (
-                            <div className="flex items-center gap-1.5">
-                              {version.validationStatus === ValidationStatus.VALID ? (
-                                <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                              ) : version.validationStatus === ValidationStatus.INVALID ? (
-                                <AlertCircle className="h-3.5 w-3.5 text-red-500" />
-                              ) : (
-                                <Clock className="h-3.5 w-3.5 text-blue-500" />
-                              )}
-                              <span className="text-xs font-medium text-gray-700">{version.validationStatus}</span>
-                            </div>
+                            <StatusBadge status={version.validationStatus} type="validation" showIcon />
                           ) : (
                             <span className="text-xs text-gray-400">-</span>
                           )}
@@ -355,7 +326,7 @@ export default function TemplateDetails() {
                               activeDocId={activeFinalDocId}
                               activeDoc={activeFinalDoc}
                             />
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-900">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-900" title="View External Reference">
                               <ExternalLink className="h-3.5 w-3.5" />
                             </Button>
                           </div>
@@ -365,11 +336,12 @@ export default function TemplateDetails() {
                   </TableBody>
                 </Table>
               ) : (
-                <div className="p-12 text-center">
-                  <History className="h-8 w-8 text-gray-200 mx-auto mb-2" />
-                  <p className="text-sm font-medium text-gray-600">No version history</p>
-                  <p className="text-xs text-gray-400 mt-1">Create a new version to start tracking changes.</p>
-                </div>
+                <PageState 
+                  title="No version history" 
+                  description="Create a new version to start tracking changes."
+                  icon="empty"
+                  className="p-12"
+                />
               )}
             </CardContent>
           </Card>
@@ -418,19 +390,13 @@ function PreviewAction({ templateId, version, userRole, onSuccess, activeDocId, 
   // If not authorized to trigger, but there is an active doc, we still show the status
   if (isThisVersionActive && activeDoc) {
     return (
-      <div className="flex items-center gap-2 px-2 py-1 bg-gray-50 rounded-md border border-gray-200">
-        <div className="flex items-center gap-1.5">
-          {activeDoc.status === DocumentStatus.COMPLETED ? (
-            <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-          ) : activeDoc.status === DocumentStatus.FAILED ? (
-            <AlertCircle className="h-3.5 w-3.5 text-red-500" />
-          ) : (
-            <Loader2 className="h-3.5 w-3.5 text-blue-500 animate-spin" />
-          )}
-          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-600">
-            Preview: {activeDoc.status}
-          </span>
-        </div>
+      <StatusBadge 
+        status={activeDoc.status} 
+        type="document" 
+        showIcon 
+        label="Preview"
+        className="px-2 py-1 bg-gray-50 rounded-md border border-gray-200"
+      >
         {activeDoc.status === DocumentStatus.COMPLETED && activeDoc.storagePath && (
           <Button variant="ghost" size="icon" className="h-6 w-6 text-blue-600" asChild title="Download Preview">
             <a href={`/api/documents/${activeDoc.id}/download`} target="_blank" rel="noreferrer">
@@ -439,11 +405,9 @@ function PreviewAction({ templateId, version, userRole, onSuccess, activeDocId, 
           </Button>
         )}
         {activeDoc.status === DocumentStatus.FAILED && activeDoc.errorMessage && (
-          <div className="group relative">
-            <AlertCircle className="h-3.5 w-3.5 text-red-400 cursor-help" title={activeDoc.errorMessage} />
-          </div>
+          <AlertCircle className="h-3.5 w-3.5 text-red-400 cursor-help" title={activeDoc.errorMessage} />
         )}
-      </div>
+      </StatusBadge>
     );
   }
 
@@ -552,19 +516,13 @@ function FinalAction({ templateId, template, version, userRole, onSuccess, activ
 
   if (isThisVersionActive && activeDoc) {
     return (
-      <div className="flex items-center gap-2 px-2 py-1 bg-purple-50 rounded-md border border-purple-200">
-        <div className="flex items-center gap-1.5">
-          {activeDoc.status === DocumentStatus.COMPLETED ? (
-            <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-          ) : activeDoc.status === DocumentStatus.FAILED ? (
-            <AlertCircle className="h-3.5 w-3.5 text-red-500" />
-          ) : (
-            <Loader2 className="h-3.5 w-3.5 text-purple-500 animate-spin" />
-          )}
-          <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700">
-            Final: {activeDoc.status}
-          </span>
-        </div>
+      <StatusBadge 
+        status={activeDoc.status} 
+        type="document" 
+        showIcon 
+        label="Final"
+        className="px-2 py-1 bg-purple-50 rounded-md border border-purple-200"
+      >
         {activeDoc.status === DocumentStatus.COMPLETED && activeDoc.storagePath && (
           <Button variant="ghost" size="icon" className="h-6 w-6 text-purple-600" asChild title="Download Final Document">
             <a href={`/api/documents/${activeDoc.id}/download`} target="_blank" rel="noreferrer">
@@ -573,11 +531,9 @@ function FinalAction({ templateId, template, version, userRole, onSuccess, activ
           </Button>
         )}
         {activeDoc.status === DocumentStatus.FAILED && activeDoc.errorMessage && (
-          <div className="group relative">
-            <AlertCircle className="h-3.5 w-3.5 text-red-400 cursor-help" title={activeDoc.errorMessage} />
-          </div>
+          <AlertCircle className="h-3.5 w-3.5 text-red-400 cursor-help" title={activeDoc.errorMessage} />
         )}
-      </div>
+      </StatusBadge>
     );
   }
 

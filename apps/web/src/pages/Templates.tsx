@@ -20,12 +20,12 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { Badge } from "../components/ui/badge";
+import { StatusBadge, PageState } from "../components/shared/StatusBadge";
 import { 
   Plus, 
   Search, 
   Filter, 
   RefreshCcw, 
-  AlertCircle,
   FileText,
   ChevronRight
 } from "lucide-react";
@@ -147,25 +147,21 @@ export default function Templates() {
       </div>
 
       {/* Content Area */}
-      <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border shadow-sm overflow-hidden min-h-[400px]">
         {isLoading ? (
-          <div className="p-24 flex flex-col items-center justify-center gap-4">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-            <p className="text-sm text-gray-500 font-medium">Loading templates...</p>
-          </div>
+          <PageState 
+            title="Loading templates..." 
+            icon="loading" 
+            className="min-h-[400px]"
+          />
         ) : isError ? (
-          <div className="p-24 flex flex-col items-center justify-center gap-4 text-center">
-            <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center">
-              <AlertCircle className="h-6 w-6 text-red-600" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">Failed to load templates</h3>
-              <p className="text-sm text-gray-500 mt-1 max-w-xs">
-                {error instanceof Error ? error.message : "An unexpected error occurred while fetching templates."}
-              </p>
-            </div>
-            <Button variant="outline" onClick={() => refetch()}>Try Again</Button>
-          </div>
+          <PageState 
+            title="Failed to load templates" 
+            description={error instanceof Error ? error.message : "An unexpected error occurred while fetching templates."}
+            icon="error"
+            action={<Button variant="outline" onClick={() => refetch()}>Try Again</Button>}
+            className="min-h-[400px]"
+          />
         ) : templates && templates.length > 0 ? (
           <Table>
             <TableHeader className="bg-gray-50/50">
@@ -209,17 +205,7 @@ export default function Templates() {
                     <span className="text-sm text-gray-600">{template.caseType}</span>
                   </TableCell>
                   <TableCell>
-                    <Badge 
-                      variant="outline" 
-                      className={cn(
-                        "text-[10px] uppercase font-bold tracking-wider px-2 py-0",
-                        template.status === TemplateStatus.ACTIVE 
-                          ? "bg-green-50 text-green-700 border-green-200" 
-                          : "bg-gray-50 text-gray-600 border-gray-200"
-                      )}
-                    >
-                      {template.status}
-                    </Badge>
+                    <StatusBadge status={template.status} type="template" />
                   </TableCell>
                   <TableCell>
                     <span className="text-xs text-gray-500">
@@ -236,26 +222,21 @@ export default function Templates() {
             </TableBody>
           </Table>
         ) : (
-          <div className="p-24 flex flex-col items-center justify-center gap-4 text-center">
-            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center">
-              <FileText className="h-8 w-8 text-gray-300" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">No templates found</h3>
-              <p className="text-sm text-gray-500 mt-1 max-w-xs">
-                {filters.search || filters.status || filters.category || filters.caseType
-                  ? "Try adjusting your filters to find what you're looking for."
-                  : "Get started by creating your first document template."}
-              </p>
-            </div>
-            {filters.search || filters.status || filters.category || filters.caseType ? (
+          <PageState 
+            title="No templates found"
+            description={filters.search || filters.status || filters.category || filters.caseType
+              ? "Try adjusting your filters to find what you're looking for."
+              : "Get started by creating your first document template."}
+            icon="empty"
+            action={filters.search || filters.status || filters.category || filters.caseType ? (
               <Button variant="outline" onClick={clearFilters}>Clear All Filters</Button>
             ) : (
               <Button>
                 <Plus className="mr-2 h-4 w-4" /> New Template
               </Button>
             )}
-          </div>
+            className="min-h-[400px]"
+          />
         )}
       </div>
     </div>
