@@ -1,6 +1,14 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { Template, TemplateFilters } from '../types/template';
+import { Template, TemplateFilters, TemplateStatus } from '../types/template';
+
+export interface CreateTemplateInput {
+  name: string;
+  code: string;
+  category: string;
+  caseType: string;
+  status: TemplateStatus;
+}
 
 export const useTemplates = (filters: TemplateFilters) => {
   return useQuery({
@@ -22,6 +30,20 @@ export const useTemplates = (filters: TemplateFilters) => {
       }
       
       return data;
+    },
+  });
+};
+
+export const useCreateTemplate = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: CreateTemplateInput) => {
+      const { data } = await api.post<Template>('/templates', input);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['templates'] });
     },
   });
 };

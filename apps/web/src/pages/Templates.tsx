@@ -21,6 +21,7 @@ import {
 } from "../components/ui/select";
 import { Badge } from "../components/ui/badge";
 import { StatusBadge, PageState } from "../components/shared/StatusBadge";
+import { CreateTemplateDialog } from "../components/templates/CreateTemplateDialog";
 import { 
   Plus, 
   Search, 
@@ -32,6 +33,7 @@ import {
 import { cn } from "../lib/utils";
 
 export default function Templates() {
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [filters, setFilters] = useState<TemplateFilters>({
     search: "",
     status: undefined,
@@ -69,7 +71,7 @@ export default function Templates() {
           <Button variant="outline" size="sm" onClick={() => refetch()}>
             <RefreshCcw className="mr-2 h-4 w-4" /> Refresh
           </Button>
-          <Button size="sm">
+          <Button size="sm" onClick={() => setIsCreateDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" /> New Template
           </Button>
         </div>
@@ -231,7 +233,7 @@ export default function Templates() {
             action={filters.search || filters.status || filters.category || filters.caseType ? (
               <Button variant="outline" onClick={clearFilters}>Clear All Filters</Button>
             ) : (
-              <Button>
+              <Button onClick={() => setIsCreateDialogOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" /> New Template
               </Button>
             )}
@@ -239,6 +241,11 @@ export default function Templates() {
           />
         )}
       </div>
+
+      <CreateTemplateDialog 
+        open={isCreateDialogOpen} 
+        onOpenChange={setIsCreateDialogOpen} 
+      />
     </div>
   );
 }
