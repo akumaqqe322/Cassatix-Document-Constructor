@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import { UserRole } from "../types/auth";
 import { 
   useTemplate, 
   useTemplateVersions, 
@@ -61,6 +63,7 @@ import {
 import { cn } from "../lib/utils";
 
 export default function TemplateDetails() {
+  const { user } = useAuth();
   const { templateId } = useParams<{ templateId: string }>();
   const { data: template, isLoading: isTemplateLoading, isError: isTemplateError } = useTemplate(templateId);
   const { data: versions, isLoading: isVersionsLoading } = useTemplateVersions(templateId);
@@ -338,6 +341,7 @@ export default function TemplateDetails() {
                             <PreviewAction 
                               templateId={templateId!} 
                               version={version} 
+                              userRole={user?.role}
                               onSuccess={(docId) => setActiveDocId(docId)}
                               activeDocId={activeDocId}
                               activeDoc={activeDoc}
@@ -346,6 +350,7 @@ export default function TemplateDetails() {
                               templateId={templateId!} 
                               template={template}
                               version={version} 
+                              userRole={user?.role}
                               onSuccess={(docId) => setActiveFinalDocId(docId)}
                               activeDocId={activeFinalDocId}
                               activeDoc={activeFinalDoc}
@@ -377,12 +382,13 @@ export default function TemplateDetails() {
 interface PreviewActionProps {
   templateId: string;
   version: TemplateVersion;
+  userRole?: UserRole;
   onSuccess: (docId: string) => void;
   activeDocId: string | null;
   activeDoc: any;
 }
 
-function PreviewAction({ templateId, version, onSuccess, activeDocId, activeDoc }: PreviewActionProps) {
+function PreviewAction({ templateId, version, userRole, onSuccess, activeDocId, activeDoc }: PreviewActionProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [caseId, setCaseId] = useState("");
   const generatePreview = useGeneratePreview();
@@ -404,8 +410,12 @@ function PreviewAction({ templateId, version, onSuccess, activeDocId, activeDoc 
     }
   };
 
-  const canPreview = version.storagePath && version.validationStatus === ValidationStatus.VALID;
+  const isAuthorized = userRole === UserRole.ADMIN || userRole === UserRole.LAWYER;
+  const hasFile = !!version.storagePath;
+  const isValid = version.validationStatus === ValidationStatus.VALID;
+  const canPreview = isAuthorized && hasFile && isValid;
 
+  // If not authorized to trigger, but there is an active doc, we still show the status
   if (isThisVersionActive && activeDoc) {
     return (
       <div className="flex items-center gap-2 px-2 py-1 bg-gray-50 rounded-md border border-gray-200">
@@ -422,7 +432,7 @@ function PreviewAction({ templateId, version, onSuccess, activeDocId, activeDoc 
           </span>
         </div>
         {activeDoc.status === DocumentStatus.COMPLETED && activeDoc.storagePath && (
-          <Button variant="ghost" size="icon" className="h-6 w-6 text-blue-600" asChild>
+          <Button variant="ghost" size="icon" className="h-6 w-6 text-blue-600" asChild title="Download Preview">
             <a href={`/api/documents/${activeDoc.id}/download`} target="_blank" rel="noreferrer">
               <Download className="h-3 w-3" />
             </a>
@@ -430,15 +440,15 @@ function PreviewAction({ templateId, version, onSuccess, activeDocId, activeDoc 
         )}
         {activeDoc.status === DocumentStatus.FAILED && activeDoc.errorMessage && (
           <div className="group relative">
-            <AlertCircle className="h-3.5 w-3.5 text-red-400 cursor-help" />
-            <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block w-48 p-2 bg-white border border-red-100 rounded shadow-lg text-[10px] text-red-600 z-50">
-              {activeDoc.errorMessage}
-            </div>
+            <AlertCircle className="h-3.5 w-3.5 text-red-400 cursor-help" title={activeDoc.errorMessage} />
           </div>
         )}
       </div>
     );
   }
+
+  // Hide action entirely for Partners
+  if (userRole === UserRole.PARTNER) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -448,6 +458,7 @@ function PreviewAction({ templateId, version, onSuccess, activeDocId, activeDoc 
           size="sm" 
           className="h-8 text-xs font-semibold"
           disabled={!canPreview}
+          title={!hasFile ? "No file uploaded" : !isValid ? `Validation: ${version.validationStatus || 'Pending'}` : ""}
         >
           <FileText className="mr-2 h-3.5 w-3.5" />
           Preview
@@ -505,12 +516,13 @@ interface FinalActionProps {
   templateId: string;
   template: any;
   version: TemplateVersion;
+  userRole?: UserRole;
   onSuccess: (docId: string) => void;
   activeDocId: string | null;
   activeDoc: any;
 }
 
-function FinalAction({ templateId, template, version, onSuccess, activeDocId, activeDoc }: FinalActionProps) {
+function FinalAction({ templateId, template, version, userRole, onSuccess, activeDocId, activeDoc }: FinalActionProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [caseId, setCaseId] = useState("");
   const generateFinal = useGenerateFinal();
@@ -532,8 +544,11 @@ function FinalAction({ templateId, template, version, onSuccess, activeDocId, ac
     }
   };
 
+  const isAuthorized = userRole === UserRole.ADMIN || userRole === UserRole.LAWYER;
   const isPublished = version.status === TemplateVersionStatus.PUBLISHED && template.publishedVersionId === version.id;
-  const canGenerate = isPublished && version.storagePath && version.validationStatus === ValidationStatus.VALID;
+  const hasFile = !!version.storagePath;
+  const isValid = version.validationStatus === ValidationStatus.VALID;
+  const canGenerate = isAuthorized && isPublished && hasFile && isValid;
 
   if (isThisVersionActive && activeDoc) {
     return (
@@ -551,7 +566,7 @@ function FinalAction({ templateId, template, version, onSuccess, activeDocId, ac
           </span>
         </div>
         {activeDoc.status === DocumentStatus.COMPLETED && activeDoc.storagePath && (
-          <Button variant="ghost" size="icon" className="h-6 w-6 text-purple-600" asChild>
+          <Button variant="ghost" size="icon" className="h-6 w-6 text-purple-600" asChild title="Download Final Document">
             <a href={`/api/documents/${activeDoc.id}/download`} target="_blank" rel="noreferrer">
               <Download className="h-3 w-3" />
             </a>
@@ -559,17 +574,15 @@ function FinalAction({ templateId, template, version, onSuccess, activeDocId, ac
         )}
         {activeDoc.status === DocumentStatus.FAILED && activeDoc.errorMessage && (
           <div className="group relative">
-            <AlertCircle className="h-3.5 w-3.5 text-red-400 cursor-help" />
-            <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block w-48 p-2 bg-white border border-red-100 rounded shadow-lg text-[10px] text-red-600 z-50">
-              {activeDoc.errorMessage}
-            </div>
+            <AlertCircle className="h-3.5 w-3.5 text-red-400 cursor-help" title={activeDoc.errorMessage} />
           </div>
         )}
       </div>
     );
   }
 
-  if (!isPublished) return null;
+  // Hide action entirely if not published or if user is a Partner
+  if (!isPublished || userRole === UserRole.PARTNER) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -579,6 +592,7 @@ function FinalAction({ templateId, template, version, onSuccess, activeDocId, ac
           size="sm" 
           className="h-8 text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white"
           disabled={!canGenerate}
+          title={!hasFile ? "No file uploaded" : !isValid ? `Validation: ${version.validationStatus || 'Pending'}` : ""}
         >
           <CheckCircle2 className="mr-2 h-3.5 w-3.5" />
           Final Generation
