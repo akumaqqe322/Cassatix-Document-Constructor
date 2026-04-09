@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTemplateDto } from './dto/create-template.dto';
 import { UpdateTemplateDto } from './dto/update-template.dto';
@@ -23,11 +23,26 @@ export class TemplatesService {
   constructor(private prisma: PrismaService) {}
 
   async create(dto: CreateTemplateDto, actorId: string) {
+    // Minimal valid temporary actor strategy:
+    // If the provided actorId is the dummy one, try to find the first admin user.
+    let effectiveActorId = actorId;
+    
+    if (actorId === '00000000-0000-0000-0000-000000000000') {
+      const admin = await this.prisma.user.findFirst({
+        where: { role: { code: 'admin' } }
+      });
+      
+      if (!admin) {
+        throw new InternalServerErrorException('No admin user found in the system. Please ensure the database is seeded.');
+      }
+      effectiveActorId = admin.id;
+    }
+
     try {
       return await this.prisma.template.create({
         data: {
           ...dto,
-          createdById: actorId,
+          createdById: effectiveActorId,
         },
         include: this.detailsInclude,
       });

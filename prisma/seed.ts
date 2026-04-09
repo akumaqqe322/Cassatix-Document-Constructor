@@ -22,6 +22,20 @@ async function main() {
     });
   }
 
+  console.log('Seeding default user...');
+  const adminRole = await prisma.role.findUnique({ where: { code: 'admin' } });
+  if (adminRole) {
+    await prisma.user.upsert({
+      where: { email: 'admin@cassatix.com' },
+      update: { name: 'System Admin' },
+      create: {
+        email: 'admin@cassatix.com',
+        name: 'System Admin',
+        roleId: adminRole.id,
+      },
+    });
+  }
+
   console.log('Seeding completed.');
 }
 
