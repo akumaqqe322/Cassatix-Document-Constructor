@@ -18,7 +18,7 @@ export const Sidebar: React.FC = () => {
         <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
           <Scale className="text-white w-5 h-5" />
         </div>
-        <span className="font-semibold text-xl tracking-tight">LexFlow</span>
+        <span className="font-semibold text-xl tracking-tight">Cassatix</span>
       </div>
       
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">

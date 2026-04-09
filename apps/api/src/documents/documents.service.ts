@@ -6,7 +6,19 @@ export class DocumentsService {
   constructor(private prisma: PrismaService) {}
 
   async findAll() {
-    return this.prisma.generatedDocument.findMany();
+    return this.prisma.generatedDocument.findMany({
+      include: {
+        template: {
+          select: {
+            name: true,
+            code: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
   }
 
   async findById(id: string) {

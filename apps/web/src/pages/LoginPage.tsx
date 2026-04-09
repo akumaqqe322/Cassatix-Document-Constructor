@@ -31,7 +31,7 @@ export const LoginPage: React.FC = () => {
           <div className="mx-auto w-12 h-12 bg-black rounded-xl flex items-center justify-center mb-4">
             <Scale className="text-white w-7 h-7" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">LexFlow</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900">Cassatix</h1>
           <p className="mt-2 text-sm text-gray-600">
             Legal Document Constructor & Lifecycle Management
           </p>
