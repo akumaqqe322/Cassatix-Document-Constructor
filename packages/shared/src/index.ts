@@ -42,13 +42,23 @@ export const TEMPLATE_VALIDATION_QUEUE = 'template-validation';
  */
 export function getRedisConnection(): any {
   if (process.env.REDIS_URL) {
-    return process.env.REDIS_URL;
+    try {
+      const url = new URL(process.env.REDIS_URL);
+      return {
+        host: url.hostname,
+        port: parseInt(url.port || '6379', 10),
+        username: url.username || undefined,
+        password: url.password || undefined,
+      };
+    } catch (e) {
+      // Fallback if URL parsing fails
+    }
   }
 
-  const host = process.env.REDIS_HOST || 'localhost';
-  const port = parseInt(process.env.REDIS_PORT || '6379', 10);
-  const username = process.env.REDIS_USER || undefined;
-  const password = process.env.REDIS_PASSWORD || undefined;
+  const host = process.env.REDIS_HOST || process.env.REDISHOST || 'localhost';
+  const port = parseInt(process.env.REDIS_PORT || process.env.REDISPORT || '6379', 10);
+  const username = process.env.REDIS_USER || process.env.REDISUSER || undefined;
+  const password = process.env.REDIS_PASSWORD || process.env.REDISPASSWORD || undefined;
 
   return {
     host,
