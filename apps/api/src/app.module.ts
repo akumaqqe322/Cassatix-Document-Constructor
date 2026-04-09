@@ -24,6 +24,7 @@ import { AuditModule } from './audit/audit.module';
         connection: {
           host: configService.get('REDIS_HOST'),
           port: configService.get('REDIS_PORT'),
+          password: configService.get('REDIS_PASSWORD'),
         },
       }),
     }),
