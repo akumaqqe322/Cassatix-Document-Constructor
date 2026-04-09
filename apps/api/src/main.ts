@@ -6,6 +6,7 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
+  app.setGlobalPrefix('api', { exclude: ['health'] });
   app.useGlobalFilters(new GlobalExceptionFilter());
   
   const port = process.env.API_PORT || 3001;
