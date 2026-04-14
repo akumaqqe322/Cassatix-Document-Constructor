@@ -5,7 +5,7 @@ import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
 import { QUEUE_NAME, getRedisConnection } from '@app/shared';
 import { CasesService } from './cases/cases.service';
-import libreoffice from 'libreoffice-convert';
+import * as libreoffice from 'libreoffice-convert';
 import { promisify } from 'util';
 
 const convertAsync = promisify(libreoffice.convert);

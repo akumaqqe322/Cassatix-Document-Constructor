@@ -1,5 +1,5 @@
 {
   "name": "Legal Document Constructor",
-  "description": "A modular monolith system for constructing legal documents with a background worker for generation.",
+  "description": "A professional-grade legal document construction system featuring template versioning, automated DOCX/PDF generation, and robust audit logging.",
   "requestFramePermissions": []
 }
