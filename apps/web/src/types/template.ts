@@ -33,6 +33,8 @@ export interface TemplateVersion {
   validationError: string | null;
   validatedAt: string | null;
   publishedAt: string | null;
+  variablesSchemaJson: any;
+  conditionsSchemaJson: any;
   createdAt: string;
   createdBy?: UserSummary;
 }

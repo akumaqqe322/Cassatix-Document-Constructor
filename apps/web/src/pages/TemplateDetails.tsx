@@ -75,8 +75,11 @@ import {
   Upload,
   Plus,
   Rocket,
-  Archive
+  Archive,
+  Eye
 } from "lucide-react";
+import { SchemaViewer } from "../components/templates/SchemaViewer";
+import { SchemaEditor } from "../components/templates/SchemaEditor";
 import { cn } from "../lib/utils";
 
 export default function TemplateDetails() {
@@ -372,6 +375,7 @@ export default function TemplateDetails() {
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-900" title="View External Reference">
                                   <ExternalLink className="h-3.5 w-3.5" />
                                 </Button>
+                                <VersionDetailsDialog version={version} />
                               </div>
                             </TableCell>
                           </TableRow>
@@ -817,8 +821,8 @@ interface CreateVersionDialogProps {
 function CreateVersionDialog({ templateId, userRole }: CreateVersionDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [changelog, setChangelog] = useState("");
-  const [variablesSchema, setVariablesSchema] = useState("");
-  const [conditionsSchema, setConditionsSchema] = useState("");
+  const [variablesSchema, setVariablesSchema] = useState('{\n  "type": "object",\n  "properties": {}\n}');
+  const [conditionsSchema, setConditionsSchema] = useState('{\n  "type": "object",\n  "properties": {}\n}');
   const [error, setError] = useState<string | null>(null);
   
   const createVersion = useCreateTemplateVersion();
@@ -858,8 +862,8 @@ function CreateVersionDialog({ templateId, userRole }: CreateVersionDialogProps)
       await refetchVersions();
       setIsOpen(false);
       setChangelog("");
-      setVariablesSchema("");
-      setConditionsSchema("");
+      setVariablesSchema('{\n  "type": "object",\n  "properties": {}\n}');
+      setConditionsSchema('{\n  "type": "object",\n  "properties": {}\n}');
     } catch (error) {
       console.error("Failed to create version", error);
       setError("Failed to create version. Please check your inputs.");
@@ -877,14 +881,14 @@ function CreateVersionDialog({ templateId, userRole }: CreateVersionDialogProps)
           Create Version
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create New Version</DialogTitle>
           <DialogDescription>
             Define a new version for this template. You can upload the file after creation.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
+        <div className="grid gap-6 py-4">
           <div className="grid gap-2">
             <Label htmlFor="changelog" className="text-xs font-bold uppercase tracking-wider text-gray-500">
               Changelog
@@ -897,30 +901,25 @@ function CreateVersionDialog({ templateId, userRole }: CreateVersionDialogProps)
               className="bg-gray-50/50 min-h-[80px]"
             />
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="variables" className="text-xs font-bold uppercase tracking-wider text-gray-500">
-              Variables Schema (JSON)
-            </Label>
-            <Textarea
-              id="variables"
-              placeholder='{ "type": "object", "properties": { ... } }'
-              value={variablesSchema}
-              onChange={(e) => setVariablesSchema(e.target.value)}
-              className="bg-gray-50/50 font-mono text-xs min-h-[100px]"
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="conditions" className="text-xs font-bold uppercase tracking-wider text-gray-500">
-              Conditions Schema (JSON)
-            </Label>
-            <Textarea
-              id="conditions"
-              placeholder='{ "type": "object", "properties": { ... } }'
-              value={conditionsSchema}
-              onChange={(e) => setConditionsSchema(e.target.value)}
-              className="bg-gray-50/50 font-mono text-xs min-h-[100px]"
-            />
-          </div>
+          
+          <Separator />
+
+          <SchemaEditor 
+            title="Variables Schema" 
+            value={variablesSchema} 
+            onChange={setVariablesSchema}
+            placeholder='{ "type": "object", "properties": { ... } }'
+          />
+
+          <Separator />
+
+          <SchemaEditor 
+            title="Conditions Schema" 
+            value={conditionsSchema} 
+            onChange={setConditionsSchema}
+            placeholder='{ "type": "object", "properties": { ... } }'
+          />
+
           {error && (
             <div className="p-3 bg-red-50 border border-red-100 rounded-md flex items-center gap-2 text-red-600 text-sm">
               <AlertCircle className="h-4 w-4" />
@@ -928,7 +927,7 @@ function CreateVersionDialog({ templateId, userRole }: CreateVersionDialogProps)
             </div>
           )}
         </div>
-        <DialogFooter>
+        <DialogFooter className="sticky bottom-0 bg-white pt-4 border-t">
           <Button variant="ghost" onClick={() => setIsOpen(false)} disabled={createVersion.isPending}>
             Cancel
           </Button>
@@ -947,6 +946,68 @@ function CreateVersionDialog({ templateId, userRole }: CreateVersionDialogProps)
             )}
           </Button>
         </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function VersionDetailsDialog({ version }: { version: TemplateVersion }) {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-900" title="View Logic & Details">
+          <Eye className="h-3.5 w-3.5" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <div className="flex items-center gap-2 mb-1">
+            <Badge variant="outline" className="font-mono">v{version.versionNumber}</Badge>
+            <StatusBadge status={version.status} type="version" />
+          </div>
+          <DialogTitle>Version Details</DialogTitle>
+          <DialogDescription>
+            Logic definition and metadata for this template version.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-6 py-4">
+          <div className="space-y-2">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500">Changelog</h4>
+            <div className="p-3 bg-gray-50 rounded-lg border text-sm text-gray-700 italic">
+              {version.changelog || "No changelog provided"}
+            </div>
+          </div>
+
+          <Separator />
+
+          <SchemaViewer 
+            title="Variables" 
+            schema={version.variablesSchemaJson} 
+            emptyMessage="No variables defined for this version."
+          />
+
+          <Separator />
+
+          <SchemaViewer 
+            title="Conditions" 
+            schema={version.conditionsSchemaJson} 
+            emptyMessage="No conditions defined for this version."
+          />
+
+          <div className="pt-4 grid grid-cols-2 gap-4 text-[10px] text-gray-400">
+            <div className="flex flex-col gap-1">
+              <span className="font-semibold uppercase tracking-wider">Created At</span>
+              <span>{new Date(version.createdAt).toLocaleString()}</span>
+            </div>
+            {version.publishedAt && (
+              <div className="flex flex-col gap-1">
+                <span className="font-semibold uppercase tracking-wider">Published At</span>
+                <span>{new Date(version.publishedAt).toLocaleString()}</span>
+              </div>
+            )}
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );
