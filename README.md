@@ -16,7 +16,7 @@ The project follows a **Modular Monolith** architecture within a monorepo, separ
 - **Frontend**: React 19, Vite, Tailwind CSS, TanStack Query, Radix UI.
 - **Backend**: NestJS, Prisma (PostgreSQL), BullMQ (Redis).
 - **Storage**: S3-compatible storage for template files and generated documents.
-- **Document Engine**: `docxtemplater` for DOCX rendering, `libreoffice-convert` for PDF generation.
+- **Document Engine**: `docxtemplater` for DOCX rendering, `libreoffice-convert` (LibreOffice) for PDF generation.
 
 ## 📋 Feature Mapping
 
@@ -32,15 +32,22 @@ The project follows a **Modular Monolith** architecture within a monorepo, separ
 | **RBAC** | ✅ Implemented | Role-based access (Admin, Lawyer, Partner) enforced at API level. |
 | **Logic Management** | ✅ Implemented | Visual Schema Editor for managing variables and conditional logic. |
 
-## 🔄 Data Flow: Generation Process
+## 📊 Data Model and Flow
 
-1. **Request**: User selects a template version and provides a Case ID.
-2. **Queue**: API creates a `GeneratedDocument` record (status: `QUEUED`) and enqueues a job in Redis.
-3. **Processing**: Worker picks up the job, fetches case data from the `CasesService`, and downloads the template from S3.
-4. **Rendering**: `docxtemplater` merges case data into the DOCX template.
-5. **Conversion**: If PDF is requested, the worker converts the DOCX buffer using LibreOffice.
-6. **Persistence**: Final file is uploaded to S3; DB record is updated to `COMPLETED`.
-7. **Delivery**: Frontend polls for status and provides a secure download link upon completion.
+### Core Entities
+- **Template**: The top-level document definition (e.g., "Standard NDA").
+- **TemplateVersion**: An immutable snapshot of a template, containing the `.docx` file reference, variable schema, and conditions.
+- **GeneratedDocument**: A record of a specific generation request, tracking status, output format, and storage location.
+- **AuditLog**: A persistent record of all state-changing actions (e.g., `PUBLISH_VERSION`, `FINAL_GENERATION_REQUESTED`).
+
+### Generation Flow
+1. **Trigger**: User selects a `TemplateVersion` and provides a `caseId`.
+2. **Persistence**: API creates a `GeneratedDocument` (status: `QUEUED`).
+3. **Job**: A job is added to the `DOCUMENT_GENERATION_QUEUE` (Redis/BullMQ).
+4. **Processing**: Worker fetches case data, downloads the template from S3, and renders the DOCX.
+5. **Conversion**: If the requested format is PDF, the worker invokes LibreOffice for conversion.
+6. **Storage**: The resulting file is uploaded to S3.
+7. **Completion**: The `GeneratedDocument` status is updated to `COMPLETED` with the `storagePath`.
 
 ## 🛡 Security & RBAC
 
@@ -49,17 +56,25 @@ Access is controlled via a custom `RolesGuard` in the NestJS API:
 - **Lawyer**: Can manage templates and trigger preview/final generations.
 - **Partner**: Read-only access to templates and generated documents.
 
-## ⚠️ Risks & Mitigations
+## ⚠️ Risks and Failure Modes
 
-- **Conversion Latency**: PDF conversion is a heavy process. **Mitigation**: Offloaded to background workers with configurable concurrency.
-- **Template Corruption**: Invalid DOCX files can crash rendering. **Mitigation**: Background validation worker checks file integrity upon upload.
-- **Data Consistency**: Case data might change during generation. **Mitigation**: Case data is fetched at the start of the worker process to ensure a point-in-time snapshot.
+- **Invalid/Corrupted Templates**: Uploading a malformed `.docx` can break the rendering engine. 
+  - *Mitigation*: Background validation worker checks file integrity and variable syntax immediately after upload.
+- **Generation Failures**: Network issues or service outages can interrupt document rendering.
+  - *Mitigation*: BullMQ provides automatic retries with exponential backoff. Status is tracked as `FAILED` with error messages surfaced to the UI.
+- **Version Conflicts**: Attempting to publish an archived version or delete a published one.
+  - *Mitigation*: Strict state machine transitions enforced in `TemplateVersionsService`.
+- **Storage/Queue Failures**: S3 or Redis unavailability.
+  - *Mitigation*: Health checks and graceful error handling in the API layer; jobs remain in the queue until the worker is available.
+- **Permission Leaks**: Unauthorized access to sensitive legal documents.
+  - *Mitigation*: RBAC enforced at every API endpoint; signed URLs or proxied downloads ensure storage remains private.
 
-## 🛠 Development & Demo Notes
+## 🚧 Current Constraints and Known Limitations
 
-- **Environment**: The system is configured for a containerized environment with PostgreSQL, Redis, and S3.
-- **Authentication**: For this demo, a mock authentication layer is used to simulate different roles.
-- **PDF Conversion**: Requires `libreoffice` to be installed in the environment where the worker runs.
+- **Mock Authentication**: The current implementation uses a development-only mock auth layer. Production deployment requires integration with a real identity provider (e.g., Auth0, Firebase Auth).
+- **Environment Dependencies**: PDF conversion relies on a local LibreOffice installation. In production, this requires a specific container image (e.g., `linuxserver/libreoffice`).
+- **Logic UX**: While a Visual Schema Editor is provided, it currently supports basic JSON Schema properties. Complex nested logic still requires manual JSON refinement in "Code" mode.
+- **Demo Scope**: The system is optimized for a "Modular Monolith" demo. High-scale production would benefit from splitting the Worker into multiple specialized microservices.
 
 ---
 *This project was developed as a technical submission for the Legal Document Constructor requirements.*
