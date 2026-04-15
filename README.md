@@ -1,80 +1,80 @@
-# Cassatix - Legal Document Constructor
+# Cassatix — Конструктор юридических документов
 
-Cassatix is a modular document construction system designed for legal professionals. It enables the management of complex document templates, version control, and automated document generation (DOCX/PDF) integrated with case data.
+Cassatix — это модульная система создания документов, разработанная для юристов. Она позволяет управлять сложными шаблонами документов, контролировать версии и автоматизировать генерацию документов (DOCX/PDF), интегрированную с данными дел.
 
-## 🏗 Architecture Overview
+## 🏗 Обзор архитектуры
 
-The project follows a **Modular Monolith** architecture within a monorepo, separating concerns between the user interface, API orchestration, and heavy background processing.
+Проект следует архитектуре **модульного монолита** внутри монорепозитория, разделяя пользовательский интерфейс, оркестрацию API и тяжелую фоновую обработку.
 
-### Module Boundaries
-- **Web App (`apps/web`)**: A React-based SPA for admins and lawyers to manage templates and trigger generations.
-- **API Server (`apps/api`)**: A NestJS server handling business logic, RBAC, audit logging, and job orchestration.
-- **Background Worker (`apps/worker`)**: A dedicated service for CPU-intensive tasks like DOCX rendering and PDF conversion.
-- **Shared Package (`packages/shared`)**: Common types, constants, and utilities used across all services.
+### Границы модулей
+- **Веб-приложение (`apps/web`)**: SPA на базе React для администраторов и юристов для управления шаблонами и запуска генерации.
+- **API-сервер (`apps/api`)**: Сервер NestJS, обрабатывающий бизнес-логику, RBAC (ролевой доступ), аудит и оркестрацию задач.
+- **Фоновый воркер (`apps/worker`)**: Специализированный сервис для ресурсоемких задач, таких как рендеринг DOCX и конвертация в PDF.
+- **Общий пакет (`packages/shared`)**: Общие типы, константы и утилиты, используемые во всех сервисах.
 
-### Tech Stack
-- **Frontend**: React 19, Vite, Tailwind CSS, TanStack Query, Radix UI.
-- **Backend**: NestJS, Prisma (PostgreSQL), BullMQ (Redis).
-- **Storage**: S3-compatible storage for template files and generated documents.
-- **Document Engine**: `docxtemplater` for DOCX rendering, `libreoffice-convert` (LibreOffice) for PDF generation.
+### Технологический стек
+- **Фронтенд**: React 19, Vite, Tailwind CSS, TanStack Query, Radix UI.
+- **Бэкенд**: NestJS, Prisma (PostgreSQL), BullMQ (Redis).
+- **Хранилище**: S3-совместимое хранилище для файлов шаблонов и сгенерированных документов.
+- **Движок документов**: `docxtemplater` для рендеринга DOCX, `libreoffice-convert` (LibreOffice) для генерации PDF.
 
-## 📋 Feature Mapping
+## 📋 Карта функций
 
-| Requirement | Implementation Status | Technical Detail |
+| Требование | Статус реализации | Технические детали |
 | :--- | :--- | :--- |
-| **Template Management** | ✅ Implemented | CRUD for templates with categorization and case-type mapping. |
-| **Versioning** | ✅ Implemented | Immutable version history with draft/published/archived states. |
-| **File Upload** | ✅ Implemented | S3-backed storage for `.docx` template files. |
-| **Validation** | ✅ Implemented | Automated background validation of template variables and structure. |
-| **Document Generation** | ✅ Implemented | Asynchronous generation using BullMQ to prevent API blocking. |
-| **Word/PDF Support** | ✅ Implemented | Native DOCX rendering + LibreOffice-based PDF conversion. |
-| **Audit Logging** | ✅ Implemented | Detailed trail of all administrative and generation actions. |
-| **RBAC** | ✅ Implemented | Role-based access (Admin, Lawyer, Partner) enforced at API level. |
-| **Logic Management** | ✅ Implemented | Visual Schema Editor for managing variables and conditional logic. |
+| **Управление шаблонами** | ✅ Реализовано | CRUD для шаблонов с категоризацией и привязкой к типам дел. |
+| **Версионность** | ✅ Реализовано | Неизменяемая история версий со статусами черновика, опубликованной и архивной. |
+| **Загрузка файлов** | ✅ Реализовано | Хранилище на базе S3 для файлов шаблонов `.docx`. |
+| **Валидация** | ✅ Реализовано | Автоматическая фоновая проверка переменных и структуры шаблона. |
+| **Генерация документов** | ✅ Реализовано | Асинхронная генерация с использованием BullMQ для предотвращения блокировки API. |
+| **Поддержка Word/PDF** | ✅ Реализовано | Нативный рендеринг DOCX + конвертация в PDF на базе LibreOffice. |
+| **Аудит** | ✅ Реализовано | Детальный журнал всех административных действий и операций генерации. |
+| **RBAC (Ролевой доступ)** | ✅ Реализовано | Ролевой доступ (Админ, Юрист, Партнер), контролируемый на уровне API. |
+| **Управление логикой** | ✅ Реализовано | Визуальный редактор схем для управления переменными и условной логикой. |
 
-## 📊 Data Model and Flow
+## 📊 Модель данных и потоки
 
-### Core Entities
-- **Template**: The top-level document definition (e.g., "Standard NDA").
-- **TemplateVersion**: An immutable snapshot of a template, containing the `.docx` file reference, variable schema, and conditions.
-- **GeneratedDocument**: A record of a specific generation request, tracking status, output format, and storage location.
-- **AuditLog**: A persistent record of all state-changing actions (e.g., `PUBLISH_VERSION`, `FINAL_GENERATION_REQUESTED`).
+### Основные сущности
+- **Шаблон (Template)**: Определение документа верхнего уровня (например, "Стандартное NDA").
+- **Версия шаблона (TemplateVersion)**: Неизменяемый снимок шаблона, содержащий ссылку на файл `.docx`, схему переменных и условия.
+- **Сгенерированный документ (GeneratedDocument)**: Запись о конкретном запросе на генерацию, отслеживающая статус, формат вывода и место хранения.
+- **Журнал аудита (AuditLog)**: Постоянная запись всех действий, изменяющих состояние (например, `PUBLISH_VERSION`, `FINAL_GENERATION_REQUESTED`).
 
-### Generation Flow
-1. **Trigger**: User selects a `TemplateVersion` and provides a `caseId`.
-2. **Persistence**: API creates a `GeneratedDocument` (status: `QUEUED`).
-3. **Job**: A job is added to the `DOCUMENT_GENERATION_QUEUE` (Redis/BullMQ).
-4. **Processing**: Worker fetches case data, downloads the template from S3, and renders the DOCX.
-5. **Conversion**: If the requested format is PDF, the worker invokes LibreOffice for conversion.
-6. **Storage**: The resulting file is uploaded to S3.
-7. **Completion**: The `GeneratedDocument` status is updated to `COMPLETED` with the `storagePath`.
+### Поток генерации
+1. **Триггер**: Пользователь выбирает `TemplateVersion` и указывает `caseId`.
+2. **Сохранение**: API создает `GeneratedDocument` (статус: `QUEUED`).
+3. **Задача**: Задача добавляется в очередь `DOCUMENT_GENERATION_QUEUE` (Redis/BullMQ).
+4. **Обработка**: Воркер получает данные дела, скачивает шаблон из S3 и рендерит DOCX.
+5. **Конвертация**: Если запрошен формат PDF, воркер вызывает LibreOffice для конвертации.
+6. **Хранение**: Результирующий файл загружается в S3.
+7. **Завершение**: Статус `GeneratedDocument` обновляется на `COMPLETED` с указанием `storagePath`.
 
-## 🛡 Security & RBAC
+## 🛡 Безопасность и RBAC
 
-Access is controlled via a custom `RolesGuard` in the NestJS API:
-- **Admin**: Full system access, including template creation and publishing.
-- **Lawyer**: Can manage templates and trigger preview/final generations.
-- **Partner**: Read-only access to templates and generated documents.
+Доступ контролируется через кастомный `RolesGuard` в NestJS API:
+- **Админ**: Полный доступ к системе, включая создание и публикацию шаблонов.
+- **Юрист**: Может управлять шаблонами и запускать генерацию превью/финальных документов.
+- **Партнер**: Доступ только для чтения к шаблонам и сгенерированным документам.
 
-## ⚠️ Risks and Failure Modes
+## ⚠️ Риски и сценарии сбоев
 
-- **Invalid/Corrupted Templates**: Uploading a malformed `.docx` can break the rendering engine. 
-  - *Mitigation*: Background validation worker checks file integrity and variable syntax immediately after upload.
-- **Generation Failures**: Network issues or service outages can interrupt document rendering.
-  - *Mitigation*: BullMQ provides automatic retries with exponential backoff. Status is tracked as `FAILED` with error messages surfaced to the UI.
-- **Version Conflicts**: Attempting to publish an archived version or delete a published one.
-  - *Mitigation*: Strict state machine transitions enforced in `TemplateVersionsService`.
-- **Storage/Queue Failures**: S3 or Redis unavailability.
-  - *Mitigation*: Health checks and graceful error handling in the API layer; jobs remain in the queue until the worker is available.
-- **Permission Leaks**: Unauthorized access to sensitive legal documents.
-  - *Mitigation*: RBAC enforced at every API endpoint; signed URLs or proxied downloads ensure storage remains private.
+- **Некорректные/поврежденные шаблоны**: Загрузка неверно сформированного `.docx` может нарушить работу движка рендеринга.
+  - *Смягчение*: Фоновый воркер валидации проверяет целостность файла и синтаксис переменных сразу после загрузки.
+- **Сбои генерации**: Проблемы с сетью или перебои в работе сервисов могут прервать рендеринг документа.
+  - *Смягчение*: BullMQ обеспечивает автоматические повторные попытки с экспоненциальной задержкой. Статус отслеживается как `FAILED` с выводом сообщений об ошибках в интерфейс.
+- **Конфликты версий**: Попытка опубликовать архивную версию или удалить опубликованную.
+  - *Смягчение*: Строгие переходы состояний, контролируемые в `TemplateVersionsService`.
+- **Сбои хранилища/очереди**: Недоступность S3 или Redis.
+  - *Смягчение*: Проверки работоспособности (health checks) и корректная обработка ошибок на уровне API; задачи остаются в очереди до тех пор, пока воркер не станет доступен.
+- **Утечки прав доступа**: Несанкционированный доступ к конфиденциальным юридическим документам.
+  - *Смягчение*: RBAC применяется на каждой конечной точке API; подписанные URL или проксированная загрузка гарантируют приватность хранилища.
 
-## 🚧 Current Constraints and Known Limitations
+## 🚧 Текущие ограничения и известные недостатки
 
-- **Mock Authentication**: The current implementation uses a development-only mock auth layer. Production deployment requires integration with a real identity provider (e.g., Auth0, Firebase Auth).
-- **Environment Dependencies**: PDF conversion relies on a local LibreOffice installation. In production, this requires a specific container image (e.g., `linuxserver/libreoffice`).
-- **Logic UX**: While a Visual Schema Editor is provided, it currently supports basic JSON Schema properties. Complex nested logic still requires manual JSON refinement in "Code" mode.
-- **Demo Scope**: The system is optimized for a "Modular Monolith" demo. High-scale production would benefit from splitting the Worker into multiple specialized microservices.
+- **Имитация аутентификации**: Текущая реализация использует слой имитации аутентификации только для разработки. Для продакшн-развертывания требуется интеграция с реальным провайдером личности (например, Auth0, Firebase Auth).
+- **Зависимости окружения**: Конвертация PDF зависит от локальной установки LibreOffice. В продакшне для этого требуется специфический образ контейнера (например, `linuxserver/libreoffice`).
+- **UX логики**: Хотя визуальный редактор схем предоставлен, в настоящее время он поддерживает базовые свойства JSON Schema. Сложная вложенная логика по-прежнему требует ручной правки JSON в режиме "Код".
+- **Масштаб демо**: Система оптимизирована для демонстрации "Модульного монолита". Для высоконагруженного продакшна было бы полезно разделить Воркер на несколько специализированных микросервисов.
 
 ---
-*This project was developed as a technical submission for the Legal Document Constructor requirements.*
+*Этот проект был разработан как техническое решение в соответствии с требованиями к конструктору юридических документов.*
