@@ -28,6 +28,7 @@ import {
   CheckCircle2,
   Clock,
 } from "lucide-react";
+import { PreviewAction, FinalAction } from "../components/templates/details/GenerationActions";
 import { CreateVersionDialog } from "../components/templates/details/CreateVersionDialog";
 import { VersionHistoryTable } from "../components/templates/details/VersionHistoryTable";
 
@@ -189,11 +190,29 @@ export default function TemplateDetails() {
                         Published on {new Date(template.publishedVersion.publishedAt!).toLocaleDateString()}
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Validation</p>
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                        <span className="text-sm font-medium text-gray-700">Valid & Ready</span>
+                    
+                    <Separator />
+                    
+                    <div className="space-y-3">
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Quick Actions</p>
+                      <div className="flex flex-col gap-2">
+                        <PreviewAction 
+                          templateId={template.id}
+                          version={template.publishedVersion}
+                          userRole={user?.role}
+                          onSuccess={setActiveDocId}
+                          activeDocId={activeDocId}
+                          activeDoc={activeDoc}
+                        />
+                        <FinalAction 
+                          templateId={template.id}
+                          template={template}
+                          version={template.publishedVersion}
+                          userRole={user?.role}
+                          onSuccess={setActiveFinalDocId}
+                          activeDocId={activeFinalDocId}
+                          activeDoc={activeFinalDoc}
+                        />
                       </div>
                     </div>
                   </div>

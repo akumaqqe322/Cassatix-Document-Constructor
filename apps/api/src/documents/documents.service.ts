@@ -1,9 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
 
 @Injectable()
 export class DocumentsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private storageService: StorageService,
+  ) {}
 
   async findAll() {
     return this.prisma.generatedDocument.findMany({
@@ -22,8 +26,27 @@ export class DocumentsService {
   }
 
   async findById(id: string) {
-    return this.prisma.generatedDocument.findUnique({
+    const doc = await this.prisma.generatedDocument.findUnique({
       where: { id },
+      include: {
+        template: true,
+      },
     });
+
+    if (!doc) {
+      throw new NotFoundException(`Document with ID ${id} not found`);
+    }
+
+    return doc;
+  }
+
+  async getDownloadUrl(id: string) {
+    const doc = await this.findById(id);
+
+    if (!doc.storagePath) {
+      throw new NotFoundException(`Document ${id} has no file associated with it`);
+    }
+
+    return this.storageService.getDownloadUrl(doc.storagePath);
   }
 }

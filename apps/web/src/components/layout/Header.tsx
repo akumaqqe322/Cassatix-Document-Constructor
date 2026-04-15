@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { LogOut, User as UserIcon, Bell } from 'lucide-react';
+import { LogOut, User as UserIcon } from 'lucide-react';
 import { Button } from '../ui/button';
 
 export const Header: React.FC = () => {
@@ -15,12 +15,6 @@ export const Header: React.FC = () => {
       </div>
 
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" className="text-gray-400 hover:text-gray-600">
-          <Bell className="w-5 h-5" />
-        </Button>
-        
-        <div className="h-8 w-px bg-gray-200 mx-2" />
-        
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center border">
             <UserIcon className="w-4 h-4 text-gray-500" />

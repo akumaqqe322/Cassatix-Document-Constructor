@@ -3,6 +3,13 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
+  try {
+    await prisma.$connect();
+  } catch (e) {
+    console.warn('Could not connect to database for seeding. Skipping seed.');
+    return;
+  }
+
   const roles = [
     { code: 'admin', name: 'Administrator' },
     { code: 'lawyer', name: 'Lawyer' },

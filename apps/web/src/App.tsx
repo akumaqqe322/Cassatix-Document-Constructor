@@ -9,6 +9,7 @@ import Templates from "./pages/Templates";
 import TemplateDetails from "./pages/TemplateDetails";
 import GeneratedDocuments from "./pages/GeneratedDocuments";
 import Audit from "./pages/Audit";
+import Settings from "./pages/Settings";
 import { UserRole } from "./types/auth";
 
 const queryClient = new QueryClient({
@@ -57,7 +58,7 @@ export default function App() {
 
               <Route path="/settings" element={
                 <ProtectedRoute allowedRoles={[UserRole.ADMIN]}>
-                  <div className="p-4 bg-white rounded-lg border">Settings Page Placeholder</div>
+                  <Settings />
                 </ProtectedRoute>
               } />
             </Route>

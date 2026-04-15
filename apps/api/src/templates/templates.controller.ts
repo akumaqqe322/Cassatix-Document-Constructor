@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Query, UsePipes, ValidationPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Query, UsePipes, ValidationPipe, UseGuards, Delete } from '@nestjs/common';
 import { TemplatesService } from './templates.service';
 import { CreateTemplateDto } from './dto/create-template.dto';
 import { UpdateTemplateDto } from './dto/update-template.dto';
@@ -33,5 +33,11 @@ export class TemplatesController {
   @Roles('admin', 'lawyer')
   update(@Param('id') id: string, @Body() dto: UpdateTemplateDto, @User() user: any) {
     return this.templatesService.update(id, dto, user.id);
+  }
+
+  @Delete(':id')
+  @Roles('admin')
+  delete(@Param('id') id: string, @User() user: any) {
+    return this.templatesService.delete(id, user.id);
   }
 }

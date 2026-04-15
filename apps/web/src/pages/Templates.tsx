@@ -1,6 +1,7 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTemplates } from "../hooks/useTemplates";
+import { useDeleteTemplate } from "../hooks/useTemplate";
 import { TemplateStatus, TemplateFilters } from "../types/template";
 import { useAuth } from "../contexts/AuthContext";
 import { UserRole } from "../types/auth";
@@ -21,6 +22,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "../components/ui/alert-dialog";
 import { Badge } from "../components/ui/badge";
 import { StatusBadge, PageState } from "../components/shared/StatusBadge";
 import { CreateTemplateDialog } from "../components/templates/CreateTemplateDialog";
@@ -30,7 +42,9 @@ import {
   Filter, 
   RefreshCcw, 
   FileText,
-  ChevronRight
+  ChevronRight,
+  Trash2,
+  Loader2
 } from "lucide-react";
 import { cn } from "../lib/utils";
 
@@ -46,7 +60,18 @@ export default function Templates() {
   });
 
   const { data: templates, isLoading, isError, error, refetch } = useTemplates(filters);
+  const deleteTemplate = useDeleteTemplate();
   const navigate = useNavigate();
+
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    try {
+      await deleteTemplate.mutateAsync(id);
+      refetch();
+    } catch (error) {
+      console.error("Failed to delete template", error);
+    }
+  };
 
   const handleFilterChange = (key: keyof TemplateFilters, value: string | undefined) => {
     setFilters((prev) => ({
@@ -221,9 +246,47 @@ export default function Templates() {
                     </span>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 group-hover:text-gray-900">
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center justify-end gap-2">
+                      {user?.role === UserRole.ADMIN && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={(e) => e.stopPropagation()}
+                              title="Delete Template"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently delete the template "{template.name}" and all its versions and generated documents. This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction 
+                                onClick={(e) => handleDelete(e, template.id)}
+                                className="bg-red-600 text-white hover:bg-red-700"
+                              >
+                                {deleteTemplate.isPending ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  "Delete"
+                                )}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 group-hover:text-gray-900">
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

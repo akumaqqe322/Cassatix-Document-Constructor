@@ -15,6 +15,7 @@ import { Loader2, Upload, CheckCircle2 } from 'lucide-react';
 import { TemplateVersion, TemplateVersionStatus } from '../../../types/template';
 import { UserRole } from '../../../types/auth';
 import { useUploadTemplateFile, useTemplateVersions } from '../../../hooks/useTemplate';
+import { cn } from '../../../lib/utils';
 
 interface UploadActionProps {
   templateId: string;
@@ -66,12 +67,16 @@ export function UploadAction({ templateId, version, userRole }: UploadActionProp
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button 
-          variant="outline" 
-          size="icon" 
-          className="h-8 w-8 text-gray-400 hover:text-gray-900"
+          variant={!version.storagePath ? "default" : "outline"} 
+          size={!version.storagePath ? "sm" : "icon"} 
+          className={cn(
+            "h-8 text-xs font-semibold",
+            !version.storagePath ? "bg-blue-600 hover:bg-blue-700 text-white" : "text-gray-400 hover:text-gray-900 w-8"
+          )}
           title="Upload Template File (.docx)"
         >
-          <Upload className="h-3.5 w-3.5" />
+          <Upload className={cn("h-3.5 w-3.5", !version.storagePath && "mr-2")} />
+          {!version.storagePath && "Upload File"}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">

@@ -140,4 +140,22 @@ export class TemplatesService {
       throw error;
     }
   }
+
+  async delete(id: string, actorId: string) {
+    const template = await this.findById(id);
+
+    await this.prisma.template.delete({
+      where: { id },
+    });
+
+    await this.auditService.record({
+      entityType: 'TEMPLATE',
+      entityId: id,
+      action: 'TEMPLATE_DELETED',
+      actorId,
+      metadata: { name: template.name, code: template.code },
+    });
+
+    return { success: true };
+  }
 }

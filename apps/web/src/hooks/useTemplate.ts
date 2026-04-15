@@ -119,3 +119,12 @@ export const useArchiveVersion = () => {
     },
   });
 };
+
+export const useDeleteTemplate = () => {
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await api.delete(`/templates/${id}`);
+      return data;
+    },
+  });
+};
