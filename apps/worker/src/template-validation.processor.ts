@@ -1,7 +1,8 @@
 import { Worker, Job } from 'bullmq';
 import { PrismaClient, ValidationStatus } from '@prisma/client';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
-import * as JSZip from 'jszip';
+import PizZip from 'pizzip';
+import Docxtemplater from 'docxtemplater';
 import { TEMPLATE_VALIDATION_QUEUE, getRedisConnection, streamToBuffer } from '@app/shared';
 
 const prisma = new PrismaClient();
@@ -52,14 +53,41 @@ export async function startTemplateValidationWorker() {
         throw new Error('[FILE_READ_ERROR] Could not read file content from storage (0 bytes).');
       }
 
-      // 2. Basic DOCX validation (is it a valid zip?)
+      // 2. Structural & Rendering Validation
       try {
-        const zip = await JSZip.loadAsync(body);
-        if (!zip.file('word/document.xml')) {
+        const zip = new PizZip(body);
+        const docXml = zip.file('word/document.xml');
+        if (!docXml) {
           throw new Error('Missing word/document.xml - the file might not be a valid Word document.');
         }
+
+        // Try a mock render to catch docxtemplater parsing errors
+        const doc = new Docxtemplater(zip, {
+          paragraphLoop: true,
+          linebreaks: true,
+        });
+
+        // Generate dummy data based on schema if available, otherwise use empty object
+        const mockData: Record<string, any> = {};
+        if (version.variablesSchemaJson && typeof version.variablesSchemaJson === 'object') {
+          const schema = version.variablesSchemaJson as Record<string, any>;
+          Object.keys(schema).forEach(key => {
+            mockData[key] = `[TEST_${key}]`;
+          });
+        }
+
+        doc.render(mockData);
+        console.log(`Mock render successful for template version: ${versionId}`);
       } catch (err: any) {
-        throw new Error(`[FORMAT_ERROR] DOCX structural validation failed: ${err.message}`);
+        // More descriptive error for PizZip/Docxtemplater failures
+        let message = err.message;
+        if (err.message.includes("can't find end of central directory")) {
+          message = "The ZIP file is corrupted or truncated (missing central directory).";
+        } else if (err.properties && err.properties.errors instanceof Array) {
+          // Flatten docxtemplater errors
+          message = err.properties.errors.map((e: any) => e.message).join(', ');
+        }
+        throw new Error(`[VALIDATION_ERROR] Rendering validation failed: ${message}`);
       }
 
       // 3. Update DB

@@ -88,6 +88,7 @@ export async function startGenerationWorker() {
         throw new Error('[STORAGE_ERROR] S3 response body is empty.');
       }
 
+      console.log(`Retrieved template metadata: Size=${templateResponse.ContentLength}, Type=${templateResponse.ContentType}`);
       const templateBuffer = await streamToBuffer(templateResponse.Body);
       if (!templateBuffer || templateBuffer.length === 0) {
         throw new Error('[FILE_READ_ERROR] Template file retrieved from storage is empty (0 bytes).');
@@ -127,7 +128,9 @@ export async function startGenerationWorker() {
         
         // Debugging for ZIP failures
         if (renderError instanceof Error && renderError.message.includes("Corrupted zip")) {
+          const hex = Buffer.from(templateBuffer).slice(0, 4).toString('hex');
           const firstBytes = Buffer.from(templateBuffer).slice(0, 100).toString('utf8');
+          console.error(`Corrupted file signature (HEX): ${hex}`);
           console.error(`Corrupted file starts with (UTF-8): ${firstBytes}`);
           console.error(`Buffer length: ${templateBuffer.length} bytes`);
         }

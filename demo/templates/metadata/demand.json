@@ -1,0 +1,16 @@
+{
+  "name": "Demand Letter",
+  "code": "DEM-PAY-001",
+  "category": "Collection",
+  "caseType": "Payment",
+  "description": "A formal demand for payment for outstanding debts.",
+  "schema": {
+    "letterDate": "string",
+    "recipientName": "string",
+    "recipientAddress": "string",
+    "debtAmount": "string",
+    "dueDate": "string",
+    "paymentInstructions": "string",
+    "creditorName": "string"
+  }
+}

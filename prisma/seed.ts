@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import PizZip from 'pizzip';
 
 const prisma = new PrismaClient();
 
@@ -75,9 +76,11 @@ async function main() {
   const demoUser = await prisma.user.findUnique({ where: { email: 'zFlexxxPlay@gmail.com' } });
   if (demoUser) {
     const { S3Client, PutObjectCommand, CreateBucketCommand, HeadBucketCommand } = await import('@aws-sdk/client-s3');
+    const fs = await import('fs');
+    const path = await import('path');
     
     const s3Client = new S3Client({
-      endpoint: process.env.S3_ENDPOINT || 'http://localhost:9000',
+      endpoint: process.env.S3_ENDPOINT || 'http://minio:9000',
       region: 'us-east-1',
       credentials: {
         accessKeyId: process.env.S3_ACCESS_KEY || 'minioadmin',
@@ -87,6 +90,8 @@ async function main() {
     });
 
     const BUCKET = process.env.S3_BUCKET || 'documents';
+    const METADATA_DIR = path.join(process.cwd(), 'demo/templates/metadata');
+    const TEMPLATES_DIR = path.join(process.cwd(), 'demo/templates');
 
     // Ensure S3 bucket exists
     try {
@@ -100,92 +105,102 @@ async function main() {
       }
     }
 
-    const demoTemplates = [
-      {
-        name: 'Power of Attorney',
-        code: 'POA-001',
-        category: 'LEGAL',
-        caseType: 'FAMILY_DISSOLUTION',
-      },
-      {
-        name: 'Claim Statement',
-        code: 'CLM-001',
-        category: 'LITIGATION',
-        caseType: 'COMMERCIAL_LITIGATION',
-      },
-      {
-        name: 'Service Agreement',
-        code: 'AGR-001',
-        category: 'CONTRACT',
-        caseType: 'CORPORATE_M_A',
-      },
-      {
-        name: 'Demand Letter',
-        code: 'DL-001',
-        category: 'NOTICE',
-        caseType: 'COMMERCIAL_LITIGATION',
-      }
-    ];
+    if (fs.existsSync(METADATA_DIR)) {
+      const files = fs.readdirSync(METADATA_DIR).filter(f => f.endsWith('.json'));
+      console.log(`Found ${files.length} demo templates to seed...`);
 
-    for (const t of demoTemplates) {
-      const template = await prisma.template.upsert({
-        where: { code: t.code },
-        update: { name: t.name, category: t.category, caseType: t.caseType },
-        create: {
-          name: t.name,
-          code: t.code,
-          category: t.category,
-          caseType: t.caseType,
-          createdById: demoUser.id,
+      for (const file of files) {
+        const id = file.replace('.json', '');
+        const metadata = JSON.parse(fs.readFileSync(path.join(METADATA_DIR, file), 'utf-8'));
+        const docxPath = path.join(TEMPLATES_DIR, `${id}.docx`);
+
+        if (!fs.existsSync(docxPath)) {
+          console.warn(`DOCX file not found for ${id}, skipping...`);
+          continue;
         }
-      });
 
-      const storagePath = `templates/${t.code}/v1.docx`;
-      
-      const version = await prisma.templateVersion.upsert({
-        where: {
-          templateId_versionNumber: {
-            templateId: template.id,
-            versionNumber: 1
+        console.log(`Seeding template: ${metadata.name} (${metadata.code})...`);
+
+        const template = await prisma.template.upsert({
+          where: { code: metadata.code },
+          update: { 
+            name: metadata.name, 
+            category: metadata.category, 
+            caseType: metadata.caseType
+          },
+          create: {
+            name: metadata.name,
+            code: metadata.code,
+            category: metadata.category,
+            caseType: metadata.caseType,
+            createdById: demoUser.id,
           }
-        },
-        update: {
-          status: 'PUBLISHED',
-          validationStatus: 'VALID',
-          storagePath,
-          fileName: `${t.name}.docx`,
-        },
-        create: {
-          templateId: template.id,
-          versionNumber: 1,
-          status: 'PUBLISHED',
-          validationStatus: 'VALID',
-          storagePath,
-          fileName: `${t.name}.docx`,
-          createdById: demoUser.id,
-          changelog: 'Initial demo version',
+        });
+
+        const storagePath = `templates/${metadata.code}/v1.docx`;
+        const docxBuffer = fs.readFileSync(docxPath);
+        
+        const version = await prisma.templateVersion.upsert({
+          where: {
+            templateId_versionNumber: {
+              templateId: template.id,
+              versionNumber: 1
+            }
+          },
+          update: {
+            status: 'PUBLISHED',
+            validationStatus: 'VALID',
+            storagePath,
+            fileName: `${id}.docx`,
+            variablesSchemaJson: metadata.schema,
+          },
+          create: {
+            templateId: template.id,
+            versionNumber: 1,
+            status: 'PUBLISHED',
+            validationStatus: 'VALID',
+            storagePath,
+            fileName: `${id}.docx`,
+            variablesSchemaJson: metadata.schema,
+            createdById: demoUser.id,
+            changelog: 'Initial demo version',
+          }
+        });
+
+        await prisma.template.update({
+          where: { id: template.id },
+          data: { publishedVersionId: version.id }
+        });
+
+        try {
+          await s3Client.send(new PutObjectCommand({
+            Bucket: BUCKET,
+            Key: storagePath,
+            Body: docxBuffer,
+            ContentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          }));
+          console.log(`Successfully uploaded ${id}.docx to S3`);
+
+          // Integrity check: Try to re-download and parse
+          const getResponse = await s3Client.send(new GetObjectCommand({
+            Bucket: BUCKET,
+            Key: storagePath,
+          }));
+          const { streamToBuffer } = await import('@app/shared');
+          const downloaded = await streamToBuffer(getResponse.Body!);
+          
+          const zip = new PizZip(downloaded);
+          if (!zip.file('word/document.xml')) {
+            throw new Error('Downloaded file is missing word/document.xml');
+          }
+          console.log(`Integrity check PASSED for ${id}.docx`);
+        } catch (err) {
+          console.error(`!!!! INTEGRITY CHECK FAILED for ${metadata.code}:`, err);
+          process.exit(1); 
         }
-      });
-
-      await prisma.template.update({
-        where: { id: template.id },
-        data: { publishedVersionId: version.id }
-      });
-
-      // Upload minimal docx (base64 of a very small zip)
-      const blankDocxBase64 = 'UEsDBBQAAAAIAAAAIQA9746A7gAAAE4CAAATAAgCW0NvbnRlbnRfVHlwZXNdLnhtbCCiBAIooAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC0ksFOwzAMhu88ReTrcpS2AyIh9XAnuAABiUvMvU2atkbGSSf29kS6m4M0YOLC0S/6+8m2W6/nsh7FmIy1UnZ7JS0Gpz23St7X94vPtLxvSToKNoXGatlo7zGZ7O7uGvYBBSeVyvuaIisOkkvloUPhG7B1Z6wGj7Y4U86BvJ1uH9v2YcAbUuVIsre9ZOn3yByV9jE7Z1j8mXfS53D6O9O17r0K99A2mDR86m3r9T6R0W8lPOnR9A9jZ5uD+aG389/fznm+5Hl29P5nB3Z1C7z5iAnY5Bv8B1BLAwQUAAAACAAAACEAt9p7p8MAAABXAAALAAgCW3JlbHNdLnJlbHOCiBAIooAACAAAAAAAAAA';
-      const buf = Buffer.from(blankDocxBase64, 'base64');
-
-      try {
-        await s3Client.send(new PutObjectCommand({
-          Bucket: BUCKET,
-          Key: storagePath,
-          Body: buf,
-          ContentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        }));
-      } catch (err) {
-        console.warn(`Could not upload template to S3 for ${t.code}`);
       }
+    } else {
+      console.warn('Demo templates directory not found. Please run "npx tsx scripts/generate-demo-templates.ts" first.');
     }
   }
 

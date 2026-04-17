@@ -1,0 +1,17 @@
+{
+  "name": "Service Agreement",
+  "code": "AGR-SERV-001",
+  "category": "Commercial",
+  "caseType": "Agreement",
+  "description": "A general service agreement between a client and a provider.",
+  "schema": {
+    "partyAName": "string",
+    "partyBName": "string",
+    "contractDate": "string",
+    "serviceDescription": "string",
+    "paymentAmount": "string",
+    "termDuration": "string",
+    "terminationNoticePeriod": "string",
+    "governingLaw": "string"
+  }
+}

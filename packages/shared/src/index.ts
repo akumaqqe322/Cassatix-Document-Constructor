@@ -119,8 +119,23 @@ export async function streamToBuffer(stream: any): Promise<Buffer> {
   
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    stream.on('data', (chunk: any) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
-    stream.on('error', (err: any) => reject(new Error(`Stream reading error: ${err.message}`)));
-    stream.on('end', () => resolve(Buffer.concat(chunks)));
+    let bytesRead = 0;
+
+    stream.on('data', (chunk: any) => {
+      const bufferChunk = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      chunks.push(bufferChunk);
+      bytesRead += bufferChunk.length;
+    });
+
+    stream.on('error', (err: any) => {
+      console.error(`[streamToBuffer] Stream error after ${bytesRead} bytes:`, err);
+      reject(new Error(`Stream reading error: ${err.message}`));
+    });
+
+    stream.on('end', () => {
+      const finalBuffer = Buffer.concat(chunks);
+      console.log(`[streamToBuffer] Stream finished. Total bytes read: ${finalBuffer.length}`);
+      resolve(finalBuffer);
+    });
   });
 }

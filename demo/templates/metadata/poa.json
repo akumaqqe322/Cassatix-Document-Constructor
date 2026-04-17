@@ -1,0 +1,17 @@
+{
+  "name": "Power of Attorney",
+  "code": "POW-ATT-001",
+  "category": "Authorization",
+  "caseType": "General",
+  "description": "A standard General Power of Attorney template.",
+  "schema": {
+    "grantorName": "string",
+    "grantorAddress": "string",
+    "effectiveDate": "string",
+    "agentName": "string",
+    "agentAddress": "string",
+    "powersDescription": "string",
+    "expiryDate": "string",
+    "signingLocation": "string"
+  }
+}
