@@ -1,9 +1,10 @@
 
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
-import * as fs from 'node:fs/promises';
-import { existsSync, mkdirSync, readdirSync, unlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, unlinkSync, writeFileSync, readFileSync } from 'node:fs';
+import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 import { Buffer } from 'node:buffer';
+import PizZip from 'pizzip';
 
 const OUTPUT_DIR = path.join(process.cwd(), 'demo/templates');
 const METADATA_DIR = path.join(OUTPUT_DIR, 'metadata');
@@ -209,56 +210,43 @@ async function generate() {
       }]
     });
 
-    // 1. Generate Binary DOCX (Explicitly as Buffer/Uint8Array)
-    const docxUint8 = await Packer.toBuffer(doc);
+    // 1. Generate Binary DOCX using Base64 bridge (Immune to UTF-8 replacement corruption)
+    const base64 = await Packer.toBase64String(doc);
+    const buffer = Buffer.from(base64, 'base64');
     
     // 2. Immediate Integrity Check (Binary Level)
-    if (docxUint8[0] !== 0x50 || docxUint8[1] !== 0x4B || docxUint8[2] !== 0x03 || docxUint8[3] !== 0x04) {
+    if (buffer[0] !== 0x50 || buffer[1] !== 0x4B || buffer[2] !== 0x03 || buffer[3] !== 0x04) {
       throw new Error(`[GENERATION_CORRUPTION] Invalid DOCX signature for ${t.id}. Expected 504b0304.`);
     }
 
     // 3. Scan for UTF-8 corruption markers (EF BF BD)
-    const hexFull = Buffer.from(docxUint8.buffer, docxUint8.byteOffset, docxUint8.byteLength).toString('hex');
-    if (hexFull.includes('efbfbd')) {
+    if (buffer.toString('hex').includes('efbfbd')) {
       throw new Error(`[GENERATION_CORRUPTION] UTF-8 expansion detected in ${t.id} immediately after generation.`);
+    }
+
+    // 4. Structural Validation (In-Memory)
+    try {
+      const zip = new PizZip(buffer);
+      if (!zip.file('word/document.xml')) {
+        throw new Error('Missing word/document.xml - invalid DOCX structure.');
+      }
+    } catch (zipErr: any) {
+      throw new Error(`[STRUCTURAL_ERROR] ${t.id} in-memory buffer is not a valid DOCX container: ${zipErr.message}`);
     }
 
     const fileName = `${t.id}.docx`;
     const fullPath = path.join(OUTPUT_DIR, fileName);
     
-    // 4. Atomic Binary Write (No string conversion)
-    await fs.writeFile(fullPath, docxUint8);
+    // 5. Atomic Binary Write (Synchronous & Explicitly Binary)
+    writeFileSync(fullPath, buffer);
 
-    // 5. Binary Integrity & Structural Validation
-    const verifyBuffer = await fs.readFile(fullPath);
-    
-    // a. Basic size guards (1B - 200KB)
-    if (verifyBuffer.length === 0) {
-      throw new Error(`[WRITE_CORRUPTION] Generated file ${fileName} is empty.`);
+    // 6. Verify Disk Write
+    const verifyBuffer = readFileSync(fullPath);
+    if (verifyBuffer.length !== buffer.length) {
+      throw new Error(`[WRITE_CORRUPTION] Disk byte mismatch for ${t.id}. Expected ${buffer.length}, got ${verifyBuffer.length}`);
     }
-    if (verifyBuffer.length > 200 * 1024) {
-      throw new Error(`[WRITE_CORRUPTION] Generated file ${fileName} exceeds demo limit (200KB). Size: ${verifyBuffer.length}`);
-    }
-
-    // b. Header signature check
-    if (verifyBuffer[0] !== 0x50 || verifyBuffer[1] !== 0x4B || verifyBuffer[2] !== 0x03 || verifyBuffer[3] !== 0x04) {
-      throw new Error(`[WRITE_CORRUPTION] Invalid ZIP signature in ${fileName}.`);
-    }
-
-    // c. UTF-8 corruption scan (EF BF BD)
     if (verifyBuffer.toString('hex').includes('efbfbd')) {
-      throw new Error(`[WRITE_CORRUPTION] Binary corruption (UTF-8 expansion) detected in ${fileName}.`);
-    }
-
-    // d. Structural validity check (can be opened as ZIP)
-    try {
-      const PizZip = (await import('pizzip')).default;
-      const zip = new PizZip(verifyBuffer);
-      if (!zip.file('word/document.xml')) {
-        throw new Error('Missing word/document.xml - invalid DOCX structure.');
-      }
-    } catch (zipErr: any) {
-      throw new Error(`[STRUCTURAL_ERROR] ${fileName} is not a valid DOCX container: ${zipErr.message}`);
+      throw new Error(`[WRITE_CORRUPTION] Binary corruption detected in ${fileName} after reading back from disk.`);
     }
 
     // Save Metadata
@@ -270,7 +258,7 @@ async function generate() {
       description: t.description,
       schema: t.schema
     };
-    await fs.writeFile(path.join(METADATA_DIR, `${t.id}.json`), JSON.stringify(metadata, null, 2), 'utf-8');
+    await fsPromises.writeFile(path.join(METADATA_DIR, `${t.id}.json`), JSON.stringify(metadata, null, 2), 'utf-8');
 
     console.log(`Saved: ${fileName} and ${t.id}.json`);
   }
