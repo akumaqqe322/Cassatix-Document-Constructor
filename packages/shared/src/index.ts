@@ -124,6 +124,9 @@ export async function streamToBuffer(stream: any): Promise<Buffer> {
   // Use async iterator for safer stream consumption in modern Node.js
   if (typeof stream[Symbol.asyncIterator] === 'function') {
     for await (const chunk of stream) {
+      if (typeof chunk === 'string') {
+        throw new Error('[BINARY_CORRUPTION] Stream emitted a string instead of a Buffer. This will corrupt binary data.');
+      }
       const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
       chunks.push(buffer);
       totalLength += buffer.length;
@@ -132,6 +135,10 @@ export async function streamToBuffer(stream: any): Promise<Buffer> {
     // Fallback to classic events if async iterator is missing
     await new Promise((resolve, reject) => {
       stream.on('data', (chunk: any) => {
+        if (typeof chunk === 'string') {
+          reject(new Error('[BINARY_CORRUPTION] Stream emitted a string instead of a Buffer. This will corrupt binary data.'));
+          return;
+        }
         const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
         chunks.push(buffer);
         totalLength += buffer.length;

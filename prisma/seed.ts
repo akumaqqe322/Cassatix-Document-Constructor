@@ -20,11 +20,20 @@ async function streamToBuffer(stream: any): Promise<Buffer> {
   
   if (typeof stream[Symbol.asyncIterator] === 'function') {
     for await (const chunk of stream) {
+      if (typeof chunk === 'string') {
+        throw new Error("Stream emitted a string instead of a Buffer. Check configuration.");
+      }
       chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
     }
   } else {
     await new Promise((resolve, reject) => {
-      stream.on('data', (c: any) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
+      stream.on('data', (c: any) => {
+        if (typeof c === 'string') {
+          reject(new Error("Stream emitted a string instead of a Buffer. Check configuration."));
+          return;
+        }
+        chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c));
+      });
       stream.on('error', reject);
       stream.on('end', resolve);
     });
@@ -164,13 +173,19 @@ async function main() {
         });
 
         const storagePath = `templates/${metadata.code}/v1.docx`;
-        const docxBuffer = fs.readFileSync(docxPath);
+        const docxBuffer = fs.readFileSync(docxPath, { encoding: null });
         
         // Final guard against corrupted artifacts before upload
         const hexSig = docxBuffer.slice(0, 4).toString('hex');
         if (hexSig !== '504b0304') {
           console.error(`!!!! CORRUPTED LOCAL FILE DETECTED for ${metadata.code}. Signature: ${hexSig}`);
-          console.error('The generator produced a non-ZIP file. Re-run "npm run generate-templates".');
+          process.exit(1);
+        }
+
+        // Check for common UTF-8 replacement character corruption pattern
+        if (docxBuffer.toString('hex').includes('efbfbd')) {
+          console.error(`!!!! UTF-8 CORRUPTION DETECTED in ${metadata.code}. The file contains replacement characters.`);
+          console.error(`Buffer size: ${docxBuffer.length} (Suspected expansion).`);
           process.exit(1);
         }
         const version = await prisma.templateVersion.upsert({

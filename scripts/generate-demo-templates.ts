@@ -201,10 +201,23 @@ async function generate() {
     });
 
     // Save DOCX
-    const base64 = await Packer.toBase64String(doc);
-    const buffer = Buffer.from(base64, 'base64');
+    const uint8 = await Packer.toBuffer(doc);
+    const buffer = Buffer.from(uint8);
+    
+    // Safety check: DOCX must start with PK signature
+    if (buffer[0] !== 0x50 || buffer[1] !== 0x4B) {
+      throw new Error(`Generated invalid DOCX for ${t.id}. Signature: ${buffer.slice(0, 4).toString('hex')}`);
+    }
+
     const fileName = `${t.id}.docx`;
-    fs.writeFileSync(path.join(OUTPUT_DIR, fileName), buffer);
+    const fullPath = path.join(OUTPUT_DIR, fileName);
+    fs.writeFileSync(fullPath, buffer);
+
+    // Verify written file
+    const verify = fs.readFileSync(fullPath);
+    if (verify.length !== buffer.length) {
+      throw new Error(`Disk write corruption for ${fileName}. Expected ${buffer.length}, got ${verify.length}`);
+    }
 
     // Save Metadata
     const metadata = {
