@@ -1,7 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import PizZip from 'pizzip';
 import { S3Client, PutObjectCommand, GetObjectCommand, CreateBucketCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
-import * as fs from 'node:fs';
+import * as fsPromises from 'node:fs/promises';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import * as path from 'node:path';
 import { Buffer } from 'node:buffer';
 
@@ -174,19 +175,22 @@ async function main() {
         });
 
         const storagePath = `templates/${metadata.code}/v1.docx`;
-        const docxBuffer = fs.readFileSync(docxPath, { encoding: null });
+        const data = await fsPromises.readFile(docxPath);
+        const docxBuffer = Buffer.from(data.buffer, data.byteOffset, data.byteLength);
         
-        // Final guard against corrupted artifacts before upload
-        const hexSig = docxBuffer.slice(0, 4).toString('hex');
-        if (hexSig !== '504b0304') {
-          console.error(`!!!! CORRUPTED LOCAL FILE DETECTED for ${metadata.code}. Signature: ${hexSig}`);
+        // 1. Double check Signature (504b0304)
+        if (docxBuffer[0] !== 0x50 || docxBuffer[1] !== 0x4B || docxBuffer[2] !== 0x03 || docxBuffer[3] !== 0x04) {
+          console.error(`!!!! CORRUPTED LOCAL FILE (Signature Mismatch) for ${metadata.code}`);
+          console.error(`First 4 bytes: ${docxBuffer.slice(0, 4).toString('hex')}`);
           process.exit(1);
         }
 
-        // Check for common UTF-8 replacement character corruption pattern
-        if (docxBuffer.toString('hex').includes('efbfbd')) {
-          console.error(`!!!! UTF-8 CORRUPTION DETECTED in ${metadata.code}. The file contains replacement characters.`);
-          console.error(`Buffer size: ${docxBuffer.length} (Suspected expansion).`);
+        // 2. Scan for UTF-8 corruption markers (EF BF BD)
+        const hex = docxBuffer.toString('hex');
+        if (hex.includes('efbfbd')) {
+          console.error(`!!!! UTF-8 BINARY CORRUPTION DETECTED in ${metadata.code}.`);
+          console.error(`File size is ${docxBuffer.length} bytes (Likely expanded from ~9KB).`);
+          console.error(`This happens if binary is treated as text. Re-run generator first.`);
           process.exit(1);
         }
         const version = await prisma.templateVersion.upsert({

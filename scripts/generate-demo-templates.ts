@@ -1,6 +1,7 @@
 
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
-import * as fs from 'node:fs';
+import * as fs from 'node:fs/promises';
+import { existsSync, mkdirSync, readdirSync, unlinkSync } from 'node:fs';
 import * as path from 'node:path';
 import { Buffer } from 'node:buffer';
 
@@ -8,15 +9,15 @@ const OUTPUT_DIR = path.join(process.cwd(), 'demo/templates');
 const METADATA_DIR = path.join(OUTPUT_DIR, 'metadata');
 
 // Ensure directories exist and are clean
-if (fs.existsSync(OUTPUT_DIR)) {
+if (existsSync(OUTPUT_DIR)) {
   console.log(`Cleaning old templates in ${OUTPUT_DIR}...`);
-  const oldFiles = fs.readdirSync(OUTPUT_DIR).filter(f => f.endsWith('.docx'));
-  oldFiles.forEach(f => fs.unlinkSync(path.join(OUTPUT_DIR, f)));
+  const oldFiles = readdirSync(OUTPUT_DIR).filter(f => f.endsWith('.docx'));
+  oldFiles.forEach(f => unlinkSync(path.join(OUTPUT_DIR, f)));
 } else {
-  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  mkdirSync(OUTPUT_DIR, { recursive: true });
 }
 
-if (!fs.existsSync(METADATA_DIR)) fs.mkdirSync(METADATA_DIR, { recursive: true });
+if (!existsSync(METADATA_DIR)) mkdirSync(METADATA_DIR, { recursive: true });
 
 interface TemplateDef {
   id: string;
@@ -208,36 +209,33 @@ async function generate() {
       }]
     });
 
-    // Save DOCX
-    // Use Base64 to ensure no binary-to-string corruption happens during generation
-    const base64 = await Packer.toBase64String(doc);
-    const buffer = Buffer.from(base64, 'base64');
+    // 1. Generate Binary DOCX (Explicitly as Buffer/Uint8Array)
+    const docxUint8 = await Packer.toBuffer(doc);
     
-    // Proactive Corruption Check
-    if (buffer.toString('hex').includes('efbfbd')) {
-      console.error(`!!! CRITICAL CORRUPTION in ${t.id} after generation! Binary contains UTF-8 replacement chars.`);
-      console.error(`Base64 length: ${base64.length}, Buffer length: ${buffer.length}`);
-      process.exit(1);
+    // 2. Immediate Integrity Check (Binary Level)
+    if (docxUint8[0] !== 0x50 || docxUint8[1] !== 0x4B || docxUint8[2] !== 0x03 || docxUint8[3] !== 0x04) {
+      throw new Error(`[GENERATION_CORRUPTION] Invalid DOCX signature for ${t.id}. Expected 504b0304.`);
     }
 
-    // Safety check: DOCX must start with PK signature
-    if (buffer[0] !== 0x50 || buffer[1] !== 0x4B) {
-      throw new Error(`Generated invalid DOCX for ${t.id}. Signature: ${buffer.slice(0, 4).toString('hex')}`);
+    // 3. Scan for UTF-8 corruption markers (EF BF BD)
+    const hexFull = Buffer.from(docxUint8.buffer, docxUint8.byteOffset, docxUint8.byteLength).toString('hex');
+    if (hexFull.includes('efbfbd')) {
+      throw new Error(`[GENERATION_CORRUPTION] UTF-8 expansion detected in ${t.id} immediately after generation.`);
     }
 
     const fileName = `${t.id}.docx`;
     const fullPath = path.join(OUTPUT_DIR, fileName);
-    fs.writeFileSync(fullPath, buffer);
-
-    // Verify written file
-    const verify = fs.readFileSync(fullPath);
-    if (verify.length !== buffer.length) {
-      throw new Error(`Disk write corruption for ${fileName}. Expected ${buffer.length}, got ${verify.length}`);
-    }
     
-    if (verify.toString('hex').includes('efbfbd')) {
-      console.error(`!!! CRITICAL CORRUPTION in ${t.id} after writing to disk!`);
-      process.exit(1);
+    // 4. Atomic Binary Write (No string conversion)
+    await fs.writeFile(fullPath, docxUint8);
+
+    // 5. Verify Disk Write
+    const verifyBuffer = await fs.readFile(fullPath);
+    if (verifyBuffer.length !== docxUint8.length) {
+      throw new Error(`[WRITE_CORRUPTION] Disk byte mismatch for ${t.id}. Expected ${docxUint8.length}, got ${verifyBuffer.length}`);
+    }
+    if (verifyBuffer.toString('hex').includes('efbfbd')) {
+      throw new Error(`[WRITE_CORRUPTION] UTF-8 expansion detected in ${t.id} after writing to disk.`);
     }
 
     // Save Metadata
@@ -249,7 +247,7 @@ async function generate() {
       description: t.description,
       schema: t.schema
     };
-    fs.writeFileSync(path.join(METADATA_DIR, `${t.id}.json`), JSON.stringify(metadata, null, 2));
+    await fs.writeFile(path.join(METADATA_DIR, `${t.id}.json`), JSON.stringify(metadata, null, 2), 'utf-8');
 
     console.log(`Saved: ${fileName} and ${t.id}.json`);
   }
