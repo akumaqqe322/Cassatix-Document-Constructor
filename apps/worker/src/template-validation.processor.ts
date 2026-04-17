@@ -2,7 +2,7 @@ import { Worker, Job } from 'bullmq';
 import { PrismaClient, ValidationStatus } from '@prisma/client';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import * as JSZip from 'jszip';
-import { TEMPLATE_VALIDATION_QUEUE, getRedisConnection } from '@app/shared';
+import { TEMPLATE_VALIDATION_QUEUE, getRedisConnection, streamToBuffer } from '@app/shared';
 
 const prisma = new PrismaClient();
 const s3Client = new S3Client({
@@ -40,12 +40,16 @@ export async function startTemplateValidationWorker() {
           Key: version.storagePath,
         }));
       } catch (s3Error) {
-        throw new Error(`[STORAGE_ERROR] Failed to fetch file from S3: ${s3Error.message}`);
+        throw new Error(`[STORAGE_ERROR] Failed to fetch file from S3: ${s3Error instanceof Error ? s3Error.message : String(s3Error)}`);
       }
 
-      const body = await response.Body?.transformToByteArray();
-      if (!body) {
-        throw new Error('[FILE_READ_ERROR] Could not read file content from storage.');
+      if (!response.Body) {
+        throw new Error('[STORAGE_ERROR] S3 response body is empty.');
+      }
+
+      const body = await streamToBuffer(response.Body);
+      if (!body || body.length === 0) {
+        throw new Error('[FILE_READ_ERROR] Could not read file content from storage (0 bytes).');
       }
 
       // 2. Basic DOCX validation (is it a valid zip?)
@@ -54,7 +58,7 @@ export async function startTemplateValidationWorker() {
         if (!zip.file('word/document.xml')) {
           throw new Error('Missing word/document.xml - the file might not be a valid Word document.');
         }
-      } catch (err) {
+      } catch (err: any) {
         throw new Error(`[FORMAT_ERROR] DOCX structural validation failed: ${err.message}`);
       }
 
@@ -69,20 +73,26 @@ export async function startTemplateValidationWorker() {
       });
 
       console.log(`Validation successful for version: ${versionId}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Validation failed for version: ${versionId}`, error);
       try {
-        await prisma.templateVersion.update({
-          where: { id: versionId },
-          data: {
-            validationStatus: ValidationStatus.INVALID,
-            validatedAt: new Date(),
-            validationError: error.message,
-          },
-        });
+        // Defensive existence check
+        const versionCheck = await prisma.templateVersion.findUnique({ where: { id: versionId } });
+        if (versionCheck) {
+          await prisma.templateVersion.update({
+            where: { id: versionId },
+            data: {
+              validationStatus: ValidationStatus.INVALID,
+              validatedAt: new Date(),
+              validationError: error.message,
+            },
+          });
+        }
       } catch (dbError) {
         console.error('Failed to update validation status in DB', dbError);
       }
+      // Re-throw to ensure BullMQ correctly handles job failure
+      throw error;
     }
   }, {
     connection: getRedisConnection(),

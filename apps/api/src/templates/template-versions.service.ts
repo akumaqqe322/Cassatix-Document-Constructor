@@ -288,6 +288,13 @@ export class TemplateVersionsService {
       );
     }
 
+    if (version.validationStatus !== ValidationStatus.VALID) {
+      throw new DomainException(
+        `Cannot publish a version that has not passed validation (current status: ${version.validationStatus})`,
+        ErrorCode.TEMPLATE_NOT_VALIDATED
+      );
+    }
+
     if (version.status === TemplateVersionStatus.PUBLISHED) {
       return version; // Already published
     }

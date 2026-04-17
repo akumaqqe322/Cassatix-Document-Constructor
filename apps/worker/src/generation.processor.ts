@@ -3,7 +3,7 @@ import { PrismaClient, DocumentStatus, OutputFormat } from '@prisma/client';
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
-import { QUEUE_NAME, getRedisConnection } from '@app/shared';
+import { QUEUE_NAME, getRedisConnection, streamToBuffer } from '@app/shared';
 import { CasesService } from './cases/cases.service';
 import * as libreoffice from 'libreoffice-convert';
 import { promisify } from 'util';
@@ -11,6 +11,7 @@ import { promisify } from 'util';
 const convertAsync = promisify(libreoffice.convert);
 const prisma = new PrismaClient();
 const casesService = new CasesService();
+
 const s3Client = new S3Client({
   endpoint: process.env.S3_ENDPOINT,
   region: 'us-east-1',
@@ -40,7 +41,13 @@ export async function startGenerationWorker() {
     console.log(`Generating ${typeLabel} document: ${documentId} (Format: ${outputFormat})`);
 
     try {
-      // 1. Update status to PROCESSING
+      // 1. Double check document exists and update status to PROCESSING
+      const docRecord = await prisma.generatedDocument.findUnique({ where: { id: documentId } });
+      if (!docRecord) {
+        console.warn(`Document ${documentId} was deleted before processing started. Skipping job.`);
+        return;
+      }
+
       await prisma.generatedDocument.update({
         where: { id: documentId },
         data: { status: DocumentStatus.PROCESSING },
@@ -77,9 +84,13 @@ export async function startGenerationWorker() {
         throw new Error(`[STORAGE_ERROR] Failed to fetch template from storage: ${s3Error instanceof Error ? s3Error.message : String(s3Error)}`);
       }
 
-      const templateBuffer = await templateResponse.Body?.transformToByteArray();
+      if (!templateResponse.Body) {
+        throw new Error('[STORAGE_ERROR] S3 response body is empty.');
+      }
+
+      const templateBuffer = await streamToBuffer(templateResponse.Body);
       if (!templateBuffer || templateBuffer.length === 0) {
-        throw new Error('[FILE_READ_ERROR] Template file retrieved from storage is empty (0 bytes). Please re-upload the template.');
+        throw new Error('[FILE_READ_ERROR] Template file retrieved from storage is empty (0 bytes).');
       }
 
       // 4. Render DOCX
@@ -89,7 +100,8 @@ export async function startGenerationWorker() {
 
       try {
         // Convert Uint8Array to Node.js Buffer for better PizZip compatibility
-        const zip = new PizZip(Buffer.from(templateBuffer));
+        const zipFileBuffer = Buffer.from(templateBuffer);
+        const zip = new PizZip(zipFileBuffer);
         const doc = new Docxtemplater(zip, {
           paragraphLoop: true,
           linebreaks: true,
@@ -112,6 +124,14 @@ export async function startGenerationWorker() {
         }
       } catch (renderError) {
         console.error(`Rendering engine error for document ${documentId}:`, renderError);
+        
+        // Debugging for ZIP failures
+        if (renderError instanceof Error && renderError.message.includes("Corrupted zip")) {
+          const firstBytes = Buffer.from(templateBuffer).slice(0, 100).toString('utf8');
+          console.error(`Corrupted file starts with (UTF-8): ${firstBytes}`);
+          console.error(`Buffer length: ${templateBuffer.length} bytes`);
+        }
+
         const message = (renderError instanceof Error && renderError.message.includes("Corrupted zip"))
           ? "The template file is corrupted or not a valid Word (.docx) document (missing ZIP central directory or end of file marker)." 
           : (renderError instanceof Error ? renderError.message : String(renderError));
@@ -130,29 +150,39 @@ export async function startGenerationWorker() {
       }));
 
       // 7. Update document status to COMPLETED
-      await prisma.generatedDocument.update({
-        where: { id: documentId },
-        data: {
-          status: DocumentStatus.COMPLETED,
-          storagePath: storagePath,
-          completedAt: new Date(),
-        },
-      });
+      // Final existence check before completion
+      const finalCheck = await prisma.generatedDocument.findUnique({ where: { id: documentId } });
+      if (finalCheck) {
+        await prisma.generatedDocument.update({
+          where: { id: documentId },
+          data: {
+            status: DocumentStatus.COMPLETED,
+            storagePath: storagePath,
+            completedAt: new Date(),
+          },
+        });
+      }
 
       console.log(`${typeLabel} document generated successfully: ${documentId}`);
     } catch (error) {
       console.error(`${typeLabel} generation failed for document: ${documentId}`, error);
       try {
-        await prisma.generatedDocument.update({
-          where: { id: documentId },
-          data: {
-            status: DocumentStatus.FAILED,
-            errorMessage: error instanceof Error ? error.message : String(error),
-          },
-        });
+        // Defensive status update
+        const errorCheck = await prisma.generatedDocument.findUnique({ where: { id: documentId } });
+        if (errorCheck) {
+          await prisma.generatedDocument.update({
+            where: { id: documentId },
+            data: {
+              status: DocumentStatus.FAILED,
+              errorMessage: error instanceof Error ? error.message : String(error),
+            },
+          });
+        }
       } catch (dbError) {
         console.error('Failed to update document status in DB', dbError);
       }
+      // Re-throw the error so that the Bull job is marked as FAILED in the queue management UI
+      throw error;
     }
   }, {
     connection: getRedisConnection(),

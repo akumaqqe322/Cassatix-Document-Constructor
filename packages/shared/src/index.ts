@@ -99,3 +99,28 @@ export function getRedisConnection(): any {
     password,
   };
 }
+
+/**
+ * Robustly converts an S3 response stream to a Node.js Buffer.
+ * Essential for reliable binary data processing in Node environment.
+ */
+export async function streamToBuffer(stream: any): Promise<Buffer> {
+  if (stream instanceof Buffer) return stream;
+  
+  // Handle web streams if they appear (some SDK versions/environments)
+  if (stream?.transformToByteArray) {
+    const bytes = await stream.transformToByteArray();
+    return Buffer.from(bytes);
+  }
+
+  if (!stream || typeof stream.on !== 'function') {
+    throw new Error('Retrieved body is not a stream');
+  }
+  
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    stream.on('data', (chunk: any) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+    stream.on('error', (err: any) => reject(new Error(`Stream reading error: ${err.message}`)));
+    stream.on('end', () => resolve(Buffer.concat(chunks)));
+  });
+}
