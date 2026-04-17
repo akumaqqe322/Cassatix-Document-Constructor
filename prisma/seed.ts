@@ -11,16 +11,18 @@ const prisma = new PrismaClient();
  */
 async function streamToBuffer(stream: any): Promise<Buffer> {
   if (stream instanceof Buffer) return stream;
+  if (stream instanceof Uint8Array) return Buffer.from(stream);
+  
   if (stream?.transformToByteArray) {
     const bytes = await stream.transformToByteArray();
     return Buffer.from(bytes);
   }
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    stream.on('data', (chunk: any) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
-    stream.on('error', (err: any) => reject(err));
-    stream.on('end', () => resolve(Buffer.concat(chunks)));
-  });
+
+  const chunks: any[] = [];
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks.map(c => Buffer.isBuffer(c) ? c : Buffer.from(c)));
 }
 
 async function main() {
@@ -189,28 +191,44 @@ async function main() {
         });
 
         try {
+          console.log(`- Uploading ${metadata.code} (${docxBuffer.length} bytes)...`);
           await s3Client.send(new PutObjectCommand({
             Bucket: BUCKET,
             Key: storagePath,
             Body: docxBuffer,
             ContentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
           }));
-          console.log(`Successfully uploaded ${id}.docx to S3`);
+          console.log(`  Success: Uploaded to S3 at ${storagePath}`);
 
           // Integrity check: Try to re-download and parse
+          // Small delay to ensure MinIO has fully processed the write (usually immediate, but safe for CI)
+          await new Promise(r => setTimeout(r, 1000));
+          
           const getResponse = await s3Client.send(new GetObjectCommand({
             Bucket: BUCKET,
             Key: storagePath,
           })) as any;
+          
           const downloaded = await streamToBuffer(getResponse.Body!);
+          console.log(`  Integrity Check: Downloaded ${downloaded.length} bytes`);
+
+          if (downloaded.length === 0) {
+            throw new Error('Downloaded file is empty (0 bytes)');
+          }
+
+          if (downloaded.length !== docxBuffer.length) {
+            console.warn(`  Warning: Byte mismatch! Local: ${docxBuffer.length}, Remote: ${downloaded.length}`);
+          }
           
           const zip = new PizZip(downloaded);
           if (!zip.file('word/document.xml')) {
             throw new Error('Downloaded file is missing word/document.xml');
           }
-          console.log(`Integrity check PASSED for ${id}.docx`);
+          console.log(`  Integrity Check: PASSED`);
         } catch (err) {
+          const bufferSnippet = docxBuffer.slice(0, 16).toString('hex');
           console.error(`!!!! INTEGRITY CHECK FAILED for ${metadata.code}:`, err);
+          console.error(`Local Buffer Size: ${docxBuffer.length}, Snippet: ${bufferSnippet}`);
           process.exit(1); 
         }
       }
