@@ -1,0 +1,24 @@
+# Demo Extraction Input
+
+Copy the text below and paste it into the "Document AI" extraction mode to test the AI-assisted field extraction.
+
+---
+
+**SETTLEMENT AGREEMENT AND RELEASE**
+
+This Settlement Agreement ("Agreement") is entered into as of May 12, 2024 (the "Effective Date"), by and between Smith & Sons Logistics (the "Client") and Global Freight Solutions.
+
+**RECITALS**
+
+WHEREAS, the parties are currently involved in a dispute pending in the High Court of Justice, Business and Property Courts, under Case Number 2024-BPC-4005 (the "Legal Matter");
+
+WHEREAS, the matter involves a Registry Reference of REG-UK-9921 relative to a disputed shipment under Master Service Agreement AGR-2023-X102;
+
+WHEREAS, the Client has asserted claims for damages in the amount of USD 125,000 relating to service failures;
+
+**AGREEMENT**
+
+1. PAYMENT. Global Freight Solutions shall pay to Smith & Sons Logistics the sum of USD 125,000 as full and final settlement of all claims.
+2. DISMISSAL. Within five business days of receipt of payment, the Client shall file a notice of discontinuance in the High Court.
+
+---
