@@ -1,7 +1,27 @@
 import { PrismaClient } from '@prisma/client';
 import PizZip from 'pizzip';
+import { S3Client, PutObjectCommand, GetObjectCommand, CreateBucketCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const prisma = new PrismaClient();
+
+/**
+ * Robustly converts an S3 response stream to a Node.js Buffer.
+ */
+async function streamToBuffer(stream: any): Promise<Buffer> {
+  if (stream instanceof Buffer) return stream;
+  if (stream?.transformToByteArray) {
+    const bytes = await stream.transformToByteArray();
+    return Buffer.from(bytes);
+  }
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    stream.on('data', (chunk: any) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+    stream.on('error', (err: any) => reject(err));
+    stream.on('end', () => resolve(Buffer.concat(chunks)));
+  });
+}
 
 async function main() {
   try {
@@ -75,10 +95,6 @@ async function main() {
   // Demo Templates Setup
   const demoUser = await prisma.user.findUnique({ where: { email: 'zFlexxxPlay@gmail.com' } });
   if (demoUser) {
-    const { S3Client, PutObjectCommand, GetObjectCommand, CreateBucketCommand, HeadBucketCommand } = await import('@aws-sdk/client-s3');
-    const fs = await import('fs');
-    const path = await import('path');
-    
     const s3Client = new S3Client({
       endpoint: process.env.S3_ENDPOINT || 'http://minio:9000',
       region: 'us-east-1',
@@ -186,7 +202,6 @@ async function main() {
             Bucket: BUCKET,
             Key: storagePath,
           })) as any;
-          const { streamToBuffer } = await import('@app/shared');
           const downloaded = await streamToBuffer(getResponse.Body!);
           
           const zip = new PizZip(downloaded);
