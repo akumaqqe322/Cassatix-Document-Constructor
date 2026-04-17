@@ -178,21 +178,44 @@ async function main() {
         const data = await fsPromises.readFile(docxPath);
         const docxBuffer = Buffer.from(data.buffer, data.byteOffset, data.byteLength);
         
-        // 1. Double check Signature (504b0304)
+        // --- PRE-UPLOAD INTEGRITY CHECKS ---
+        
+        // 1. Basic size guards (1B - 200KB)
+        if (docxBuffer.length === 0) {
+          throw new Error(`[SEED_CORRUPTION] Template ${metadata.code} is empty.`);
+        }
+        if (docxBuffer.length > 200 * 1024) {
+          throw new Error(`[SEED_CORRUPTION] Template ${metadata.code} exceeds 200KB limit.`);
+        }
+
+        // 2. Double check Signature (504b0304)
         if (docxBuffer[0] !== 0x50 || docxBuffer[1] !== 0x4B || docxBuffer[2] !== 0x03 || docxBuffer[3] !== 0x04) {
           console.error(`!!!! CORRUPTED LOCAL FILE (Signature Mismatch) for ${metadata.code}`);
           console.error(`First 4 bytes: ${docxBuffer.slice(0, 4).toString('hex')}`);
           process.exit(1);
         }
 
-        // 2. Scan for UTF-8 corruption markers (EF BF BD)
-        const hex = docxBuffer.toString('hex');
-        if (hex.includes('efbfbd')) {
+        // 3. Scan for UTF-8 corruption markers (EF BF BD)
+        if (docxBuffer.toString('hex').includes('efbfbd')) {
           console.error(`!!!! UTF-8 BINARY CORRUPTION DETECTED in ${metadata.code}.`);
-          console.error(`File size is ${docxBuffer.length} bytes (Likely expanded from ~9KB).`);
-          console.error(`This happens if binary is treated as text. Re-run generator first.`);
+          console.error(`This happens if binary is treated as text. Re-run generator.`);
           process.exit(1);
         }
+
+        // 4. Structural Validation
+        try {
+          const zip = new PizZip(docxBuffer);
+          if (!zip.file('word/document.xml')) {
+            throw new Error('Missing word/document.xml - invalid DOCX.');
+          }
+          // Dry render check (docxtemplater is imported as well)
+          const Docxtemplater = (await import('docxtemplater')).default;
+          new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
+        } catch (err: any) {
+          console.error(`!!!! STRUCTURAL ERROR in ${metadata.code}: ${err.message}`);
+          process.exit(1);
+        }
+
         const version = await prisma.templateVersion.upsert({
           where: {
             templateId_versionNumber: {
