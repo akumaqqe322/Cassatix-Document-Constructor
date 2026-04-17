@@ -6,23 +6,31 @@ import * as path from 'path';
 
 const prisma = new PrismaClient();
 
-/**
- * Robustly converts an S3 response stream to a Node.js Buffer.
- */
 async function streamToBuffer(stream: any): Promise<Buffer> {
   if (stream instanceof Buffer) return stream;
   if (stream instanceof Uint8Array) return Buffer.from(stream);
   
+  // Handle S3 SDK transformToByteArray if present
   if (stream?.transformToByteArray) {
     const bytes = await stream.transformToByteArray();
     return Buffer.from(bytes);
   }
 
-  const chunks: any[] = [];
-  for await (const chunk of stream) {
-    chunks.push(chunk);
+  const chunks: Buffer[] = [];
+  
+  if (typeof stream[Symbol.asyncIterator] === 'function') {
+    for await (const chunk of stream) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+  } else {
+    await new Promise((resolve, reject) => {
+      stream.on('data', (c: any) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
+      stream.on('error', reject);
+      stream.on('end', resolve);
+    });
   }
-  return Buffer.concat(chunks.map(c => Buffer.isBuffer(c) ? c : Buffer.from(c)));
+  
+  return Buffer.concat(chunks);
 }
 
 async function main() {
@@ -158,6 +166,13 @@ async function main() {
         const storagePath = `templates/${metadata.code}/v1.docx`;
         const docxBuffer = fs.readFileSync(docxPath);
         
+        // Final guard against corrupted artifacts before upload
+        const hexSig = docxBuffer.slice(0, 4).toString('hex');
+        if (hexSig !== '504b0304') {
+          console.error(`!!!! CORRUPTED LOCAL FILE DETECTED for ${metadata.code}. Signature: ${hexSig}`);
+          console.error('The generator produced a non-ZIP file. Re-run "npm run generate-templates".');
+          process.exit(1);
+        }
         const version = await prisma.templateVersion.upsert({
           where: {
             templateId_versionNumber: {

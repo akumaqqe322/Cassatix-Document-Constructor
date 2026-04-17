@@ -106,36 +106,42 @@ export function getRedisConnection(): any {
  */
 export async function streamToBuffer(stream: any): Promise<Buffer> {
   if (stream instanceof Buffer) return stream;
+  if (stream instanceof Uint8Array) return Buffer.from(stream);
   
-  // Handle web streams if they appear (some SDK versions/environments)
+  // Handle SDK transform utility if present
   if (stream?.transformToByteArray) {
     const bytes = await stream.transformToByteArray();
     return Buffer.from(bytes);
   }
 
-  if (!stream || typeof stream.on !== 'function') {
-    throw new Error('Retrieved body is not a stream');
+  if (!stream || (typeof stream[Symbol.asyncIterator] !== 'function' && typeof stream.on !== 'function')) {
+    throw new Error('Retrieved body is not a readable stream');
   }
   
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    let bytesRead = 0;
+  const chunks: Buffer[] = [];
+  let totalLength = 0;
 
-    stream.on('data', (chunk: any) => {
-      const bufferChunk = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-      chunks.push(bufferChunk);
-      bytesRead += bufferChunk.length;
+  // Use async iterator for safer stream consumption in modern Node.js
+  if (typeof stream[Symbol.asyncIterator] === 'function') {
+    for await (const chunk of stream) {
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      chunks.push(buffer);
+      totalLength += buffer.length;
+    }
+  } else {
+    // Fallback to classic events if async iterator is missing
+    await new Promise((resolve, reject) => {
+      stream.on('data', (chunk: any) => {
+        const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        chunks.push(buffer);
+        totalLength += buffer.length;
+      });
+      stream.on('error', reject);
+      stream.on('end', resolve);
     });
+  }
 
-    stream.on('error', (err: any) => {
-      console.error(`[streamToBuffer] Stream error after ${bytesRead} bytes:`, err);
-      reject(new Error(`Stream reading error: ${err.message}`));
-    });
-
-    stream.on('end', () => {
-      const finalBuffer = Buffer.concat(chunks);
-      console.log(`[streamToBuffer] Stream finished. Total bytes read: ${finalBuffer.length}`);
-      resolve(finalBuffer);
-    });
-  });
+  const finalBuffer = Buffer.concat(chunks);
+  console.log(`[streamToBuffer] Processed binary stream: ${finalBuffer.length} bytes`);
+  return finalBuffer;
 }

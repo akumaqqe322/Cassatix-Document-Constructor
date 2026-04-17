@@ -201,7 +201,8 @@ async function generate() {
     });
 
     // Save DOCX
-    const buffer = await Packer.toBuffer(doc);
+    const base64 = await Packer.toBase64String(doc);
+    const buffer = Buffer.from(base64, 'base64');
     const fileName = `${t.id}.docx`;
     fs.writeFileSync(path.join(OUTPUT_DIR, fileName), buffer);
 
