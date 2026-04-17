@@ -22,17 +22,22 @@ const s3Client = new S3Client({
 });
 const bucket = process.env.S3_BUCKET!;
 
-export async function startPreviewWorker() {
-  console.log(`Starting preview worker for queue: ${QUEUE_NAME}`);
+export async function startGenerationWorker() {
+  console.log(`Starting document generation worker for queue: ${QUEUE_NAME}`);
 
   const worker = new Worker(QUEUE_NAME, async (job: Job) => {
-    // Only process preview generation jobs
-    if (job.name !== 'generate-preview') {
+    // Determine job type and prefix
+    const isPreview = job.name === 'generate-preview';
+    const isFinal = job.name === 'generate-final';
+
+    if (!isPreview && !isFinal) {
+      console.warn(`Unknown job name on generation queue: ${job.name}`);
       return;
     }
 
     const { templateId, versionId, caseId, documentId, outputFormat = OutputFormat.DOCX, customVariables } = job.data;
-    console.log(`Generating preview for document: ${documentId} (Format: ${outputFormat})`);
+    const typeLabel = isPreview ? 'preview' : 'final';
+    console.log(`Generating ${typeLabel} document: ${documentId} (Format: ${outputFormat})`);
 
     try {
       // 1. Update status to PROCESSING
@@ -69,7 +74,7 @@ export async function startPreviewWorker() {
           Key: version.storagePath,
         }));
       } catch (s3Error) {
-        throw new Error(`[STORAGE_ERROR] Failed to fetch template from storage: ${s3Error.message}`);
+        throw new Error(`[STORAGE_ERROR] Failed to fetch template from storage: ${s3Error instanceof Error ? s3Error.message : String(s3Error)}`);
       }
 
       const templateBuffer = await templateResponse.Body?.transformToByteArray();
@@ -94,28 +99,30 @@ export async function startPreviewWorker() {
 
         // 5. Convert to PDF if requested
         if (outputFormat === OutputFormat.PDF) {
-          console.log(`Converting preview document ${documentId} to PDF...`);
+          console.log(`Converting ${typeLabel} document ${documentId} to PDF...`);
           try {
             outputBuffer = await convertAsync(outputBuffer, '.pdf', undefined);
             contentType = 'application/pdf';
             extension = 'pdf';
           } catch (convError) {
             console.error(`PDF conversion failed for document: ${documentId}`, convError);
-            throw new Error(`[CONVERSION_FAILED] PDF conversion failed. Ensure your server has LibreOffice installed: ${convError.message}`);
+            throw new Error(`[CONVERSION_FAILED] PDF conversion failed. Ensure your server has LibreOffice installed: ${convError instanceof Error ? convError.message : String(convError)}`);
           }
         }
       } catch (renderError) {
-        const message = renderError.message.includes("Corrupted zip") 
+        const message = (renderError instanceof Error && renderError.message.includes("Corrupted zip"))
           ? "The template file is corrupted or not a valid Word (.docx) document." 
-          : renderError.message;
+          : (renderError instanceof Error ? renderError.message : String(renderError));
         throw new Error(`[RENDER_ERROR] Document rendering failed: ${message}`);
       }
 
-      // 6. Save preview to S3
-      const previewKey = `previews/${documentId}.${extension}`;
+      // 6. Save document to S3
+      const keyPrefix = isPreview ? 'previews' : 'documents';
+      const storagePath = `${keyPrefix}/${documentId}.${extension}`;
+      
       await s3Client.send(new PutObjectCommand({
         Bucket: bucket,
-        Key: previewKey,
+        Key: storagePath,
         Body: outputBuffer,
         ContentType: contentType,
       }));
@@ -125,20 +132,20 @@ export async function startPreviewWorker() {
         where: { id: documentId },
         data: {
           status: DocumentStatus.COMPLETED,
-          storagePath: previewKey,
+          storagePath: storagePath,
           completedAt: new Date(),
         },
       });
 
-      console.log(`Preview generated successfully for document: ${documentId}`);
+      console.log(`${typeLabel} document generated successfully: ${documentId}`);
     } catch (error) {
-      console.error(`Preview generation failed for document: ${documentId}`, error);
+      console.error(`${typeLabel} generation failed for document: ${documentId}`, error);
       try {
         await prisma.generatedDocument.update({
           where: { id: documentId },
           data: {
             status: DocumentStatus.FAILED,
-            errorMessage: error.message,
+            errorMessage: error instanceof Error ? error.message : String(error),
           },
         });
       } catch (dbError) {
@@ -147,14 +154,15 @@ export async function startPreviewWorker() {
     }
   }, {
     connection: getRedisConnection(),
+    concurrency: 5, // Allow processing multiple jobs in parallel on this worker
   });
 
   worker.on('completed', (job) => {
-    console.log(`Preview job ${job.id} completed`);
+    console.log(`Generation job ${job.id} (${job.name}) completed`);
   });
 
   worker.on('failed', (job, err) => {
-    console.error(`Preview job ${job?.id} failed: ${err.message}`);
+    console.error(`Generation job ${job?.id} (${job?.name}) failed: ${err.message}`);
   });
 
   return worker;
