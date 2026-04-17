@@ -142,16 +142,16 @@ async function main() {
       }
     }
 
-    if (fs.existsSync(METADATA_DIR)) {
-      const files = fs.readdirSync(METADATA_DIR).filter(f => f.endsWith('.json'));
+    if (existsSync(METADATA_DIR)) {
+      const files = readdirSync(METADATA_DIR).filter(f => f.endsWith('.json'));
       console.log(`Found ${files.length} demo templates to seed...`);
 
       for (const file of files) {
         const id = file.replace('.json', '');
-        const metadata = JSON.parse(fs.readFileSync(path.join(METADATA_DIR, file), 'utf-8'));
+        const metadata = JSON.parse(readFileSync(path.join(METADATA_DIR, file), 'utf-8'));
         const docxPath = path.join(TEMPLATES_DIR, `${id}.docx`);
 
-        if (!fs.existsSync(docxPath)) {
+        if (!existsSync(docxPath)) {
           console.warn(`DOCX file not found for ${id}, skipping...`);
           continue;
         }
