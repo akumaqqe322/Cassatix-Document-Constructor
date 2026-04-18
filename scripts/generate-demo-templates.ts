@@ -5,6 +5,7 @@ import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 import { Buffer } from 'node:buffer';
 import PizZip from 'pizzip';
+import Docxtemplater from 'docxtemplater';
 
 const OUTPUT_DIR = path.join(process.cwd(), 'demo/templates');
 const METADATA_DIR = path.join(OUTPUT_DIR, 'metadata');
@@ -189,7 +190,15 @@ export async function generateTemplates() {
     console.log(`Generating ${t.name}...`);
 
     const children = t.content.map(line => {
-      // If the first line or looks like a title, make it a heading
+      // If the line is empty, return an empty paragraph
+      if (!line.trim()) {
+        return new Paragraph({
+          children: [],
+          spacing: { after: 120 }
+        });
+      }
+
+      // If the first line or looks like a title, make it a heading (only if no variables)
       if (line === line.toUpperCase() && line.length > 5 && !line.includes('{{')) {
         return new Paragraph({
           text: line,
@@ -198,8 +207,21 @@ export async function generateTemplates() {
         });
       }
       
+      // Split line by placeholders while keeping delimiters
+      // Example: "Hello {{name}}, welcome" -> ["Hello ", "{{name}}", ", welcome"]
+      const parts = line.split(/(\{\{[^}]+\}\})/g);
+      
+      const textRuns = parts.map(part => {
+        if (!part) return null;
+        return new TextRun({
+          text: part,
+          // If it's a placeholder, we could style it differently for debugging if we wanted,
+          // but the key requirement is that it is in its OWN TextRun.
+        });
+      }).filter((run): run is TextRun => run !== null);
+
       return new Paragraph({
-        children: [new TextRun(line)],
+        children: textRuns,
         spacing: { after: 120 }
       });
     });
@@ -230,8 +252,20 @@ export async function generateTemplates() {
       if (!zip.file('word/document.xml')) {
         throw new Error('Missing word/document.xml - invalid DOCX structure.');
       }
+      
+      // 4.1. docxtemplater syntax validation (compile check)
+      const docxTemplate = new Docxtemplater(zip, {
+        paragraphLoop: true,
+        linebreaks: true,
+        delimiters: {
+          start: '{{',
+          end: '}}',
+        },
+      });
+      docxTemplate.compile();
+      console.log(`  - Structural check passed for ${t.id}`);
     } catch (zipErr: any) {
-      throw new Error(`[STRUCTURAL_ERROR] ${t.id} in-memory buffer is not a valid DOCX container: ${zipErr.message}`);
+      throw new Error(`[STRUCTURAL_ERROR] ${t.id} in-memory buffer is not a valid or well-formed DOCX template: ${zipErr.message}`);
     }
 
     const fileName = `${t.id}.docx`;

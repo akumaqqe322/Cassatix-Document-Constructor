@@ -217,7 +217,14 @@ async function main() {
           }
           // Dry render check (docxtemplater is imported as well)
           const Docxtemplater = (await import('docxtemplater')).default;
-          new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
+          new Docxtemplater(zip, { 
+            paragraphLoop: true, 
+            linebreaks: true,
+            delimiters: {
+              start: '{{',
+              end: '}}',
+            },
+          });
         } catch (err: any) {
           console.error(`!!!! STRUCTURAL ERROR in ${metadata.code}: ${err.message}`);
           process.exit(1);

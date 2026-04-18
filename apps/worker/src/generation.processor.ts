@@ -106,6 +106,10 @@ export async function startGenerationWorker() {
         const doc = new Docxtemplater(zip, {
           paragraphLoop: true,
           linebreaks: true,
+          delimiters: {
+            start: '{{',
+            end: '}}',
+          },
         });
 
         doc.render(variables);

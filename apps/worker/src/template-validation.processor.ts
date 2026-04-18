@@ -65,6 +65,10 @@ export async function startTemplateValidationWorker() {
         const doc = new Docxtemplater(zip, {
           paragraphLoop: true,
           linebreaks: true,
+          delimiters: {
+            start: '{{',
+            end: '}}',
+          },
         });
 
         // Generate dummy data based on schema if available, otherwise use empty object
