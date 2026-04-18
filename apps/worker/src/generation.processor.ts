@@ -112,6 +112,7 @@ export async function startGenerationWorker() {
             start: '{{',
             end: '}}',
           },
+          nullGetter: () => '[N/A]',
         });
 
         doc.render(variables);

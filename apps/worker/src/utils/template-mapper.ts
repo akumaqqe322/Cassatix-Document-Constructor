@@ -11,25 +11,49 @@ export function mapTemplateVariables(context: GenerationContext, templateCode: s
   // Base variables are always included
   const result: Record<string, any> = { ...contextVars };
 
+  // Define explicit placeholders for all demo templates to ensure coverage
+  const placeholders: Record<string, any> = {
+    // Default Fallbacks
+    powersDescription: '[N/A - General Authority]',
+    damageDescription: '[N/A - See Statement of Facts]',
+    serviceDescription: '[N/A - As per attached scope]',
+    paymentInstructions: 'Standard wire transfer to primary account.',
+    recipientName: '[Specified Recipient]',
+    recipientAddress: '[Recipient Address]',
+    defendantName: '[Named Defendant]',
+    partyBName: '[Service Provider]',
+    agentName: `${client.shortName} Authorized Agent`,
+    agentAddress: `${contextVars.courtName || 'Administrative Office'} Chambers`,
+    expiryDate: 'Indefinite until revoked',
+    signingLocation: contextVars.courtName || 'Administrative Office',
+    termDuration: '12 Months',
+    terminationNoticePeriod: '30 Days',
+    governingLaw: contextVars.courtName || 'Governing Jurisdiction',
+    clientName: client.name,
+    caseNumber: caseData.number,
+    issueDate: contextVars.openingDate,
+    amountFormatted: contextVars.amountFormatted || 'N/A'
+  };
+
   // Explicit mappings for demo templates
   switch (templateCode) {
     case 'POW-ATT-001': // Power of Attorney
       result.grantorName = client.name;
       result.grantorAddress = client.organization || contextVars.registryRef || 'Principal Business Address';
       result.effectiveDate = contextVars.openingDate;
-      result.agentName = result.agentName || `${client.shortName} Representative`;
-      result.agentAddress = result.agentAddress || `${contextVars.courtName || 'Local Registry'} Chambers`;
-      result.powersDescription = caseData.contractNumber ? `Under agreement ${caseData.contractNumber}: ${contextVars.description}` : contextVars.description;
-      result.expiryDate = caseData.dueDate ? new Date(caseData.dueDate).toLocaleDateString() : 'Indefinite until revoked';
-      result.signingLocation = contextVars.courtName || 'Administrative Office';
+      result.agentName = result.agentName || placeholders.agentName;
+      result.agentAddress = result.agentAddress || placeholders.agentAddress;
+      result.powersDescription = caseData.contractNumber ? `Under agreement ${caseData.contractNumber}: ${contextVars.description || placeholders.powersDescription}` : (contextVars.description || placeholders.powersDescription);
+      result.expiryDate = caseData.dueDate ? new Date(caseData.dueDate).toLocaleDateString() : placeholders.expiryDate;
+      result.signingLocation = contextVars.courtName || placeholders.signingLocation;
       break;
 
     case 'CLAIM-GEN-001': // Statement of Claim
       result.claimantName = client.name;
-      result.defendantName = result.defendantName || 'The Named Defendant';
+      result.defendantName = result.defendantName || placeholders.defendantName;
       result.incidentDate = contextVars.openingDate;
-      result.incidentLocation = contextVars.courtName || 'Jurisdictional Venue';
-      result.damageDescription = contextVars.description;
+      result.incidentLocation = contextVars.courtName || placeholders.incidentLocation;
+      result.damageDescription = contextVars.description || placeholders.damageDescription;
       result.claimAmount = caseData.amount || 0;
       result.currency = caseData.currency || 'USD';
       result.lawyerName = 'Counsel for Claimant';
@@ -38,28 +62,28 @@ export function mapTemplateVariables(context: GenerationContext, templateCode: s
 
     case 'AGR-SERV-001': // Service Agreement
       result.partyAName = client.name;
-      result.partyBName = result.partyBName || 'The Service Provider';
+      result.partyBName = result.partyBName || placeholders.partyBName;
       result.contractDate = contextVars.openingDate;
-      result.serviceDescription = contextVars.description;
-      result.paymentAmount = contextVars.amountFormatted;
-      result.termDuration = '12 Months';
-      result.terminationNoticePeriod = '30 Days';
-      result.governingLaw = contextVars.courtName || 'State Law';
+      result.serviceDescription = contextVars.description || placeholders.serviceDescription;
+      result.paymentAmount = contextVars.amountFormatted || placeholders.amountFormatted;
+      result.termDuration = placeholders.termDuration;
+      result.terminationNoticePeriod = placeholders.terminationNoticePeriod;
+      result.governingLaw = contextVars.courtName || placeholders.governingLaw;
       break;
 
     case 'DEM-PAY-001': // Demand Letter
       result.letterDate = contextVars.openingDate;
-      result.recipientName = result.recipientName || 'Outstanding Debtor';
-      result.recipientAddress = result.recipientAddress || 'Default Billing Address';
-      result.debtAmount = contextVars.amountFormatted;
+      result.recipientName = result.recipientName || placeholders.recipientName;
+      result.recipientAddress = result.recipientAddress || placeholders.recipientAddress;
+      result.debtAmount = contextVars.amountFormatted || placeholders.amountFormatted;
       result.dueDate = caseData.dueDate ? new Date(caseData.dueDate).toLocaleDateString() : 'Immediate';
-      result.paymentInstructions = 'Wire Transfer or Corporate Check';
+      result.paymentInstructions = placeholders.paymentInstructions;
       result.creditorName = client.name;
       break;
   }
 
   // Final Pass: Ensure no keys are 'undefined' to avoid literal "undefined" in docx
-  // We use "N/A" as a safe visible fallback for legal documents
+  // We prioritize N/A for missing keys that are expected but weren't filled
   Object.keys(result).forEach(key => {
     if (result[key] === undefined || result[key] === null) {
       result[key] = '[N/A]';

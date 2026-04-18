@@ -26,14 +26,10 @@ export function GenerationStatusStep({ documentId, onRetry, onClose }: Generatio
   // Auto-download on success (optional UX but helpful)
   // We won't auto-download but we will provide the button
 
-  const handleDownload = async () => {
+  const handleDownload = () => {
     if (!doc?.id) return;
-    try {
-      const { data } = await api.get<{ url: string }>(`/documents/${doc.id}/download`);
-      window.open(data.url, '_blank');
-    } catch (err) {
-      console.error('Download failed', err);
-    }
+    // Direct link to the download endpoint which handles the redirect to secure storage
+    window.open(`/api/documents/${doc.id}/download`, '_blank');
   };
 
   const isFailed = doc?.status === DocumentStatus.FAILED;
