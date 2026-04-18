@@ -3,8 +3,9 @@ import { PrismaClient, DocumentStatus, OutputFormat } from '@prisma/client';
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
-import { QUEUE_NAME, getRedisConnection, streamToBuffer } from '@app/shared';
+import { QUEUE_NAME, getRedisConnection, streamToBuffer, GenerationContext } from '@app/shared';
 import { CasesService } from './cases/cases.service';
+import { mapTemplateVariables } from './utils/template-mapper';
 import * as libreoffice from 'libreoffice-convert';
 import { promisify } from 'util';
 
@@ -44,8 +45,7 @@ export async function startGenerationWorker() {
       // 1. Double check document exists and update status to PROCESSING
       const docRecord = await prisma.generatedDocument.findUnique({ where: { id: documentId } });
       if (!docRecord) {
-        console.warn(`Document ${documentId} was deleted before processing started. Skipping job.`);
-        return;
+        throw new Error(`[LIFECYCLE_ERROR] Document ${documentId} record missing from database. Generation job cannot proceed.`);
       }
 
       await prisma.generatedDocument.update({
@@ -56,6 +56,7 @@ export async function startGenerationWorker() {
       // 2. Fetch version and context data
       const version = await prisma.templateVersion.findUnique({
         where: { id: versionId },
+        include: { template: true },
       });
 
       if (!version || !version.storagePath) {
@@ -65,8 +66,9 @@ export async function startGenerationWorker() {
       // Determine template variables (normalized context)
       let variables = customVariables;
       if (!variables && caseId) {
-        const context = await casesService.getGenerationContext(caseId);
-        variables = context.variables;
+        const context: GenerationContext = await casesService.getGenerationContext(caseId);
+        // Apply mapping layer to bridge context -> specific template placeholders
+        variables = mapTemplateVariables(context, version.template.code);
       }
 
       if (!variables) {

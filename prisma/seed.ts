@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import PizZip from 'pizzip';
+import Docxtemplater from 'docxtemplater';
 import { S3Client, PutObjectCommand, GetObjectCommand, CreateBucketCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
 import * as fsPromises from 'node:fs/promises';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
@@ -182,8 +183,7 @@ async function main() {
         });
 
         const storagePath = `templates/${metadata.code}/v1.docx`;
-        const data = await fsPromises.readFile(docxPath);
-        const docxBuffer = Buffer.from(data.buffer, data.byteOffset, data.byteLength);
+        const docxBuffer = await fsPromises.readFile(docxPath);
         
         // --- PRE-UPLOAD INTEGRITY CHECKS ---
         
@@ -215,9 +215,8 @@ async function main() {
           if (!zip.file('word/document.xml')) {
             throw new Error('Missing word/document.xml - invalid DOCX.');
           }
-          // Dry render check (docxtemplater is imported as well)
-          const Docxtemplater = (await import('docxtemplater')).default;
-          new Docxtemplater(zip, { 
+          // Dry render check to catch parsing/structural errors
+          const doc = new Docxtemplater(zip, { 
             paragraphLoop: true, 
             linebreaks: true,
             delimiters: {
@@ -225,6 +224,7 @@ async function main() {
               end: '}}',
             },
           });
+          doc.render({});
         } catch (err: any) {
           console.error(`!!!! STRUCTURAL ERROR in ${metadata.code}: ${err.message}`);
           process.exit(1);

@@ -76,7 +76,9 @@ export const useGeneratedDocument = (id: string | undefined) => {
     enabled: !!id,
     refetchInterval: (query) => {
       const doc = query.state.data;
-      if (doc && (doc.status === DocumentStatus.COMPLETED || doc.status === DocumentStatus.FAILED)) {
+      const error = query.state.error;
+      // Stop polling if we got a terminal state or a hard error (like document missing/API error)
+      if (error || (doc && (doc.status === DocumentStatus.COMPLETED || doc.status === DocumentStatus.FAILED))) {
         return false;
       }
       return 2000; // Poll every 2 seconds

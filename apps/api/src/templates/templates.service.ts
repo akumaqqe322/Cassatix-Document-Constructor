@@ -178,6 +178,22 @@ export class TemplatesService {
         data: { publishedVersionId: null },
       });
 
+      // 1.5. Prevent deletion if there are active generation jobs to avoid orphaning
+      const activeDocuments = await tx.generatedDocument.count({
+        where: {
+          templateId: id,
+          status: { in: ['QUEUED', 'PROCESSING'] },
+        },
+      });
+
+      if (activeDocuments > 0) {
+        throw new DomainException(
+          `Cannot delete template while ${activeDocuments} document(s) are actively being generated. Please wait for them to finish.`,
+          ErrorCode.FORBIDDEN_ACTION,
+          HttpStatus.CONFLICT
+        );
+      }
+
       // 2. Delete generated documents first (leaves)
       await tx.generatedDocument.deleteMany({
         where: { templateId: id },

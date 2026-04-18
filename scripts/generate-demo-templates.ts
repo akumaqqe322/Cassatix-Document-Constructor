@@ -253,7 +253,7 @@ export async function generateTemplates() {
         throw new Error('Missing word/document.xml - invalid DOCX structure.');
       }
       
-      // 4.1. docxtemplater syntax validation (compile check)
+      // 4.1. docxtemplater syntax validation (render check)
       const docxTemplate = new Docxtemplater(zip, {
         paragraphLoop: true,
         linebreaks: true,
@@ -262,7 +262,7 @@ export async function generateTemplates() {
           end: '}}',
         },
       });
-      docxTemplate.compile();
+      docxTemplate.render({});
       console.log(`  - Structural check passed for ${t.id}`);
     } catch (zipErr: any) {
       throw new Error(`[STRUCTURAL_ERROR] ${t.id} in-memory buffer is not a valid or well-formed DOCX template: ${zipErr.message}`);
