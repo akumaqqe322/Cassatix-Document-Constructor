@@ -14,9 +14,9 @@ export function mapTemplateVariables(context: GenerationContext, templateCode: s
   // Define explicit placeholders for all demo templates to ensure coverage
   const placeholders: Record<string, any> = {
     // Default Fallbacks
-    powersDescription: '[N/A - General Authority]',
-    damageDescription: '[N/A - See Statement of Facts]',
-    serviceDescription: '[N/A - As per attached scope]',
+    powersDescription: 'Authorised to act on all legal matters pertaining to the designated case and its related administrative requirements.',
+    damageDescription: 'Losses and damages arising from the stated breach of contract, including consequential financial impact.',
+    serviceDescription: 'Professional legal and administrative services as required by the statement of work.',
     paymentInstructions: 'Standard wire transfer to primary account.',
     recipientName: '[Specified Recipient]',
     recipientAddress: '[Recipient Address]',
@@ -43,7 +43,9 @@ export function mapTemplateVariables(context: GenerationContext, templateCode: s
       result.effectiveDate = contextVars.openingDate;
       result.agentName = result.agentName || placeholders.agentName;
       result.agentAddress = result.agentAddress || placeholders.agentAddress;
-      result.powersDescription = caseData.contractNumber ? `Under agreement ${caseData.contractNumber}: ${contextVars.description || placeholders.powersDescription}` : (contextVars.description || placeholders.powersDescription);
+      // Prioritize explicit case powers description, then manual description, then fallback
+      const authorityText = caseData.powersDescription || contextVars.powersDescription || caseData.description || contextVars.description || placeholders.powersDescription;
+      result.powersDescription = caseData.contractNumber ? `Under agreement ${caseData.contractNumber}: ${authorityText}` : authorityText;
       result.expiryDate = caseData.dueDate ? new Date(caseData.dueDate).toLocaleDateString() : placeholders.expiryDate;
       result.signingLocation = contextVars.courtName || placeholders.signingLocation;
       break;
@@ -53,7 +55,7 @@ export function mapTemplateVariables(context: GenerationContext, templateCode: s
       result.defendantName = result.defendantName || placeholders.defendantName;
       result.incidentDate = contextVars.openingDate;
       result.incidentLocation = contextVars.courtName || placeholders.incidentLocation;
-      result.damageDescription = contextVars.description || placeholders.damageDescription;
+      result.damageDescription = caseData.description || contextVars.description || placeholders.damageDescription;
       result.claimAmount = caseData.amount || 0;
       result.currency = caseData.currency || 'USD';
       result.lawyerName = 'Counsel for Claimant';
@@ -64,7 +66,7 @@ export function mapTemplateVariables(context: GenerationContext, templateCode: s
       result.partyAName = client.name;
       result.partyBName = result.partyBName || placeholders.partyBName;
       result.contractDate = contextVars.openingDate;
-      result.serviceDescription = contextVars.description || placeholders.serviceDescription;
+      result.serviceDescription = caseData.description || contextVars.description || placeholders.serviceDescription;
       result.paymentAmount = contextVars.amountFormatted || placeholders.amountFormatted;
       result.termDuration = placeholders.termDuration;
       result.terminationNoticePeriod = placeholders.terminationNoticePeriod;

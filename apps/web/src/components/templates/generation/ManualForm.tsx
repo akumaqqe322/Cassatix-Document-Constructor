@@ -21,6 +21,8 @@ export function ManualForm({ data, onChange }: ManualFormProps) {
     { id: 'amountFormatted', label: 'Value / Amount', placeholder: 'e.g. USD 250,000' },
     { id: 'contractId', label: 'Contract / Agreement ID', placeholder: 'e.g. AGR-2024' },
     { id: 'openingDate', label: 'Opened Date', placeholder: 'e.g. 01/15/2024' },
+    { id: 'description', label: 'Case Summary (description)', placeholder: 'Short description of the matter' },
+    { id: 'powersDescription', label: 'Authority Scope (PoA)', placeholder: 'Describe powers granted' },
   ];
 
   return (

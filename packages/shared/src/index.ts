@@ -41,6 +41,7 @@ export interface CaseData {
   filingDate?: string;
   contractNumber?: string;
   description: string;
+  powersDescription?: string;
   metadata?: Record<string, any>;
 }
 
@@ -55,6 +56,8 @@ export interface GenerationContext {
     issueDate: string;
     dueDate?: string;
     contractNumber?: string;
+    description: string;
+    powersDescription?: string;
   };
   client: {
     id: string;

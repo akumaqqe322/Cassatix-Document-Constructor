@@ -19,6 +19,7 @@ interface Project2CaseRecord {
   registry_ref?: string;
   agreement_id?: string;
   brief_summary: string;
+  powers_description?: string;
   ext_metadata?: any;
 }
 
@@ -41,6 +42,7 @@ export class CasesService {
       registry_ref: 'CA-CIV-1002',
       agreement_id: 'AGR-2023-99',
       brief_summary: 'Breach of contract dispute regarding software licensing and professional services delivery.',
+      powers_description: 'Full authority to represent Acme Corp in all matters relating to civil litigation CA-CIV-1002, including settlement negotiations and filing of pleadings.',
     },
     {
       internal_id: 'case-456',
@@ -53,6 +55,7 @@ export class CasesService {
       jurisdiction: 'Family Court of New York',
       registry_ref: 'NY-FAM-2024-X',
       brief_summary: 'Uncontested divorce proceeding including simplified asset division.',
+      powers_description: 'Authority to execute documents related to asset division and financial disclosures for the pending dissolution of marriage.',
     },
     {
       internal_id: 'case-789',
@@ -89,6 +92,7 @@ export class CasesService {
       filingDate: raw.opened_at,
       contractNumber: raw.agreement_id,
       description: raw.brief_summary,
+      powersDescription: raw.powers_description,
       metadata: raw.ext_metadata,
     };
   }
@@ -105,6 +109,8 @@ export class CasesService {
         issueDate: raw.opened_at,
         dueDate: raw.deadline_at,
         contractNumber: raw.agreement_id,
+        description: raw.brief_summary,
+        powersDescription: raw.powers_description,
       },
       client: {
         id: raw.client_handle.toLowerCase().replace(/\s+/g, '-'),
@@ -122,6 +128,8 @@ export class CasesService {
         amountFormatted: raw.estimated_value ? `${raw.val_currency || 'USD'} ${raw.estimated_value.toLocaleString()}` : 'N/A',
         openingDate: new Date(raw.opened_at).toLocaleDateString(),
         contractId: raw.agreement_id || 'NOT_SPECIFIED',
+        powersDescription: raw.powers_description,
+        description: raw.brief_summary,
       }
     };
   }
