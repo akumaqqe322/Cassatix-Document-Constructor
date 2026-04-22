@@ -1,71 +1,57 @@
 # Cassatix: Legal Document Automation Platform
 
-Cassatix is a production-grade document automation and management platform tailored for high-stakes legal workflows. It addresses the friction of manual document assembly by providing a centralized, version-controlled system for legal templates and high-throughput generation.
+Cassatix is an enterprise-grade document automation and orchestration platform purpose-built for high-stakes legal workflows. It replaces unstable local "template drifting" with a centralized, version-controlled, and audited system for high-throughput legal instrument generation.
 
 ---
 
-## 🏛 Project Status: Prototype / MVP
-Cassatix is currently in a **functional prototype phase**. While it implements the full core lifecycle from template management to PDF generation, it uses a **mock authentication mechanism** (`x-user-id` header) for rapid prototyping and local RBAC simulation.
+## 🏛 Project Status: Functional Prototype
+Cassatix is currently in a **Functional Prototype (MVP)** phase. It implements the full content lifecycle from template drafting to background PDF generation. 
+
+> [!IMPORTANT]
+> For speed of evaluation, this prototype uses a **Mock Identity Mechanism** (`x-user-id` header) for local RBAC simulation rather than a production OIDC provider.
 
 ---
 
-## 📑 Documentation Index
+## 🗺 Where to Start
 
-Follow these guides to explore the system in depth:
+If you are a reviewer, follow this path to understand the system:
 
-### 🚀 Getting Started
-- **[Demo & Testing Flow](./docs/demo-flow.md)**: A step-by-step walkthrough for reviewers.
-- **[Contributing Guide](./docs/contributing.md)**: Standards for repository hygiene and development.
-
-### 🏗 Technical Deep Dives
-- **[Architecture Overview](./docs/architecture.md)**: Services, job orchestration, and infrastructure.
-- **[Data Model](./docs/data-model.md)**: Relational entities and domain boundaries.
-- **[API Overview](./docs/api-overview.md)**: REST endpoint documentation and security model.
-
-### ⚠️ Reality Check
-- **[Known Issues & Limitations](./docs/known-issues.md)**: Honest assessment of the current prototype.
+1.  **[Demo & Testing Flow](./docs/demo-flow.md)**: Start here for a guided walkthrough of the Lawyer, Partner, and Admin personas.
+2.  **[Architecture Overview](./docs/architecture.md)**: Read this to understand how we decouple API orchestration from worker-based document assembly.
+3.  **[API Overview](./docs/api-overview.md)**: Explore the REST structure and the role-based security model.
 
 ---
 
-## ✨ Main Features
+## ✨ Core Capabilities
 
-### 📄 Template Lifecycle Management
-*   **Segmented Versions**: Manage templates through `DRAFT`, `PUBLISHED`, and `ARCHIVED` statuses.
-*   **One-Way Promotion**: Only "PUBLISHED" versions are available for final document production, preventing draft leaking.
-*   **Safety Gate**: Immutable versioning prevents retrospective changes from affecting historical records.
-
-### ⚡️ Automated Document Generation
-*   **AI Extraction Layer**: Upload raw client notes; Gemini AI extracts structured entities to populate templates.
-*   **Project 2.0 Integration**: Simulated real-time sourcing from case management data.
-*   **Background Assembly**: Distributed workers process intensive `.docx` assembly and `.pdf` conversions without blocking the UI.
-
-### 🛡 Security & Governance
-*   **Role-Based Access Control (RBAC)**: Distinct permissions for `Admin`, `Lawyer`, and `Partner` roles.
-*   **Full Audit Trail**: Every generation event and template modification is logged with actor metadata.
+- **Immutable Versioning**: A strict `DRAFT` → `PUBLISHED` lifecycle ensures production documents always use verified, audited content.
+- **Contextual Generation**: Populate documents using real-time Case data, AI-extracted structured entities, or manual overrides.
+- **Distributed Automation**: Offloads intensive Word assembly and PDF conversion to a resilient, Redis-backed worker pool.
+- **Firm Governance**: Role-Based Access Control (RBAC) paired with a comprehensive system-wide Audit Log.
 
 ---
 
-## 🏗 High-Level Architecture
+## 🏗 High-Level Stack
 
-Cassatix is a distributed full-stack application built for performance and maintainability:
-- **Frontend**: React 19 SPA + Vite + Tailwind CSS + shadcn/ui.
-- **Backend API**: NestJS (TypeScript) gateway.
-- **Background Worker**: A headless Node.js service dedicated to document assembly.
-- **Data Persistence**: PostgreSQL (Relational), Redis (Queues), S3 (Artifacts).
+Cassatix is built on a modern, distributed architecture:
+- **Frontend**: React 19 SPA + Vite + Tailwind CSS.
+- **Backend**: NestJS (TypeScript) Gateway & Metadata Orchestrator.
+- **Worker**: Headless Node.js Service (BullMQ) for document assembly chores.
+- **Persistence**: PostgreSQL (State), Redis (Queue), S3 (File Storage).
 
 ---
 
 ## 🚀 Quick Setup
 
 ```bash
-# Install dependencies
+# 1. Install dependencies
 npm install
 
-# Setup database
+# 2. Synchronize database and seed demo data
 npx prisma migrate dev
 npx prisma db seed
 
-# Start development environment
+# 3. Launch the full-stack environment
 npm run dev
 ```
 

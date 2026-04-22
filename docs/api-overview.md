@@ -1,20 +1,21 @@
-# API Overview - Cassatix
+# API Reference - Cassatix Gateway
 
-This document provides a logical overview of the Cassatix REST API. The API is built with NestJS and follows a resource-oriented structure.
+This document provides a technical overview of the Cassatix REST API. The API is a NestJS-powered gateway that orchestrates metadata and enforces firm-wide security policies.
 
 ---
 
-## 🔐 Authentication & Roles (Mock/Dev)
+## 🔐 Identity & Access (Prototype)
 
-In the current prototype phase, authentication is handled via a **mock identity header**.
+In the current prototype, authentication is simulated via a **Mock Identity Header**.
 - **Header**: `x-user-id`
-- **Mechanism**: The `RolesGuard` resolves the user from the database based on this ID.
+- **Logic**: The `RolesGuard` resolves the actor from the database using this ID to enforce RBAC.
 
-### Role Implications
-Certain endpoints are restricted based on the user's role:
-- **admin**: Access to audit logs, system stats, and template deletion.
-- **lawyer**: Access to template creation, versioning, and document generation.
-- **partner**: Access to case data and document generation.
+### Firm Roles
+| Role | Primary Responsibility | Key Permissions |
+| :--- | :--- | :--- |
+| **admin** | Governance & Oversight | Audit logs, system health, and lifecycle management. |
+| **lawyer** | Content Design | Drafting templates, versioning, and testing previews. |
+| **partner** | Execution | Case-linked generation and final client document retrieval. |
 
 ---
 
@@ -35,9 +36,9 @@ Manages the actual content and lifecycle of document versions.
 - `POST /:versionId/preview`: Trigger an asynchronous preview generation.
 - `POST /:versionId/generate`: Trigger an asynchronous final document generation.
 
-### 📁 Legal Matters / Cases (`/api/cases`)
+### 📁 Legal Cases (`/api/cases`)
 Provides the business context for document generation.
-- `GET /`: List active matters from the source system.
+- `GET /`: List active cases from the source system.
 - `GET /:id`: Retrieve detailed party and case data.
 - `GET /:id/context`: Get normalized data variables for template population.
 

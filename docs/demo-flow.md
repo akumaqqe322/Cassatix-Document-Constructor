@@ -4,24 +4,24 @@ This guide provides a walkthrough for reviewers to evaluate the core functionali
 
 ---
 
-## 🎭 Persona: The Lawyer (Setup)
-
-1.  **Define a Template**: Navigate to "Templates" and create a metadata record (e.g., "Non-Disclosure Agreement").
-2.  **Draft a Version**: Create a new version.
-3.  **Content Injection**: Upload a `.docx` file using the `{{variableName}}` syntax. 
-    *   *Tip*: Use `{{clientName}}` and `{{effectiveDate}}` to match seeded case data.
-4.  **Promote**: Promote the version to **Published**.
+## 🎭 Persona: The Lawyer (Design)
+1.  **Define Intent**: Create a new Template record (e.g., "Non-Disclosure Agreement").
+2.  **Iterate**: Create a `v1` draft and upload a `.docx` containing `{{clientName}}` and `{{effectiveDate}}`.
+3.  **Validate**: Promote the version to **PUBLISHED**.
 
 ---
 
 ## 🎭 Persona: The Partner (Production)
+1.  **Select Context**: Identify an active litigation matter in the "Cases" list.
+2.  **Execute**: Click "Generate Document" and choose the "NDA" template.
+3.  **Bridge Sourcing**: Select **"Link to Case"** to pull live data from the simulated firm database.
 
-1.  **Identify Matter**: Navigate to the "Cases" list.
-2.  **Trigger Generation**: Select a case and choose "Generate Document".
-3.  **Bridge Sourcing**: Select your published template and choose "Link to Case".
-4.  **Verification**: 
-    - Verify the status moves from `QUEUED` to `COMPLETED`.
-    - Download the final PDF and inspect that the `{{clientName}}` has been accurately replaced with data from the case management source.
+---
+
+## ✅ Success State
+- The document status transitions from `QUEUED` to `COMPLETED`.
+- The final PDF accurately replaces variables with case management data (e.g., "MegaCorp").
+- A permanent, immutable record is generated in the **Audit Logs**.
 
 ---
 

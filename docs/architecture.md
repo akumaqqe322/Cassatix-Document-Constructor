@@ -29,39 +29,39 @@ The platform is composed of several independent services and data stores:
 
 ---
 
-## 🔄 Core Lifecycles
+## 🔄 Core System Lifecycles
 
-### Template Content Lifecycle
-Templates move through a strict set of states to ensure production safety.
+### 1. Template Content Lifecycle
+Templates move through a strict state machine to prevent draft content from reaching client documents.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> DRAFT: Create Template
-    DRAFT --> DRAFT: Update / Upload binary
-    DRAFT --> PUBLISHED: Promote to LIVE
-    PUBLISHED --> DRAFT: Create new version
-    PUBLISHED --> ARCHIVED: Retire version
+    [*] --> DRAFT: Create Version
+    DRAFT --> DRAFT: Metadata Update / Binary Upload
+    DRAFT --> PUBLISHED: Promote to LIVE (Immutable)
+    PUBLISHED --> DRAFT: Iterate (New Version)
+    PUBLISHED --> ARCHIVED: Retire Version
     ARCHIVED --> [*]
 ```
 
-### Async Generation Flow
-Document generation is asynchronous, following an event-driven pattern.
+### 2. Async Document Orchestration
+Document assembly is handled asynchronously to ensure a responsive UI, even during large PDF conversions.
 
 ```mermaid
 sequenceDiagram
-    participant Web as Web (SPA)
-    participant API as API Service
-    participant Queue as Redis Queue
-    participant Worker as Worker Service
+    participant UI as Web Frontend
+    participant API as API Gateway
+    participant Redis as Redis (BullMQ)
+    participant Worker as Generation Worker
 
-    Web->>API: POST /generate
-    API->>Queue: Enqueue Job (Context + Template)
-    API-->>Web: 202 Accepted (Job ID)
-    Queue->>Worker: Process Job
-    Worker->>Worker: Assemble & Convert
-    Worker->>API: Mark Completed
-    Web->>API: Poll / WebSocket status
-    API-->>Web: Status: Finished (Download Link)
+    UI->>API: POST /generate (Case + Template)
+    API->>Redis: Enqueue Assembly Task
+    API-->>UI: 202 Accepted (Job ID)
+    Redis->>Worker: Claim Task
+    Worker->>Worker: Assembly -> Conversion -> S3 Upload
+    Worker->>API: Callback (Job Complete)
+    UI->>API: Poll / WebSocket status
+    API-->>UI: Return Final Artifact Link
 ```
 
 ---

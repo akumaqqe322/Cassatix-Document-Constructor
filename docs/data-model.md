@@ -12,10 +12,10 @@ The high-level definition of a legal document (e.g., "Master Service Agreement")
 - **Relationship**: Owns many `TemplateVersions`. Has a pointer to one `publishedVersion`.
 
 ### 2. TemplateVersion
-Represent a specific iteration of a template's content.
+Represents a specific iteration of a template's content and logic.
 - **Fields**: `versionNumber`, `status` (DRAFT, PUBLISHED, ARCHIVED), `storagePath` (S3).
-- **Metadata**: Includes `variablesSchemaJson` derived from the template contents.
-- **Status Gate**: Only a version in `PUBLISHED` status can be used for final document production.
+- **Logic**: Version `PUBLISHED` content is strictly immutable.
+- **Requirement**: Only versions in `PUBLISHED` status are available for PRODUCTION document generation.
 
 ### 3. GeneratedDocument
 The record of a specific generation event.
@@ -42,10 +42,10 @@ erDiagram
 
 ---
 
-## 💼 Domain Boundaries
+## 💼 Logical Boundaries
 
--   **Internal Domain**: Cassatix owns all metadata regarding template lifecycle, versioning, and the logs of when/how documents were generated.
--   **External Domain (Cases)**: Case data (Parties, Dates, Effective amounts) is considered "Borrowed Context". Cassatix pulls this data via an adapter but does not own the master record of the legal matter.
+- **Internal (Cassatix)**: Owns the lifecycle of legal instruments, version immutability, and state-based generation history.
+- **External (Cases)**: Contextual data (Parties, Dates, Amounts) is "Borrowed Context". Cassatix interfaces with the firm ERP/CMS via an adapter layer but does not own the master litigation record.
 
 ---
 

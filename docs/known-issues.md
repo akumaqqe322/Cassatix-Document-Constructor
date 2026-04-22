@@ -20,21 +20,21 @@ This document provides an honest assessment of the current prototype's constrain
 ## 🏗 Logical Limitations
 
 ### 🤖 AI Extraction Variance
-- **Issue**: Gemini AI extraction is non-deterministic. The same input text may result in slightly different variable keys if the prompt is not strictly constrained.
-- **Impact**: Some extracted fields might not match template placeholders exactly (e.g., `client_name` vs `clientName`).
+- **Issue**: Gemini AI extraction is non-deterministic. The same input text may result in slightly different variable mappings if the prompt is not strictly constrained.
+- **Impact**: Some extracted fields might not match template placeholders exactly (e.g., `client_name` vs `clientName`), requiring manual reconciliation in the UI.
 
 ### 📁 Document Assembly
 - **Issue**: Complex nested logic (nested loops/conditionals) in `.docx` files is currently limited to the capabilities of the `docxtemplater` configuration.
-- **Constraint**: Deep biological or mathematical formulas within Word docs are not supported in the current assembly pipeline.
+- **Constraint**: Deep specific document schemas (e.g., complex tables) may require manual template tuning.
 
 ---
 
-## 🚀 Common Failure Points
+## 🚀 Common Failure Modes
 
-1.  **Stuck Jobs**: If a Worker service crashes mid-processing, the status of a `GeneratedDocument` may stay `PROCESSING` indefinitely. 
-    *   *Mitigation*: Manual retry or clearing the Redis queue.
-2.  **Schema Mismatch**: Uploading a `.docx` with variables that don't exist in the Case Management data.
-    *   *Mitigation*: Use the "Preview" flow to identify missing data before "Final" generation.
+1. **Stalled Jobs**: A worker crash mid-processing may leave a document in a `PROCESSING` state.
+   - *Mitigation*: Manually retry via API or flush the Redis queue.
+2. **Context Miss**: Generating from a `.docx` with variables missing in the Case data.
+   - *Mitigation*: Use the **Preview** flow to identify gaps before final generation.
 
 ---
 
